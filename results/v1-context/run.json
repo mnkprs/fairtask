@@ -1,0 +1,8 @@
+{
+  "run_id": "v1-context",
+  "variant": "v1-context",
+  "description": "Single agent with read-only repository tools (Read/Grep/Glob) and an investigation procedure.",
+  "model": "claude-opus-5",
+  "started_at": "2026-08-28T15:37:27.111Z",
+  "n_instances": 30
+}

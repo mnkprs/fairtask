@@ -1,0 +1,67 @@
+{
+  "run_id": "v5-rerun",
+  "variant": "v5-cheap-probes",
+  "model": "claude-opus-5",
+  "n": 30,
+  "scored": 30,
+  "errors": 0,
+  "unverified": 0,
+  "decision_accuracy": 0.6333333333333333,
+  "balanced_accuracy": 0.625,
+  "flag_precision": 0.7647058823529411,
+  "flag_recall": 0.65,
+  "flag_f1": 0.7027027027027027,
+  "kappa": 0.2325581395348836,
+  "tpr": 0.65,
+  "tnr": 0.6,
+  "n_flag": 20,
+  "n_usable": 10,
+  "missed_problems": 7,
+  "false_alarms": 4,
+  "both_axes_correct": 0.4,
+  "underspecified": {
+    "exact": 0.4,
+    "within1": 0.8666666666666667,
+    "mae": 0.7666666666666667,
+    "flag_agreement": 0.6,
+    "missed": 8,
+    "false_alarm": 4
+  },
+  "false_negative": {
+    "exact": 0.3333333333333333,
+    "within1": 0.8333333333333334,
+    "mae": 0.8666666666666667,
+    "flag_agreement": 0.7,
+    "missed": 2,
+    "false_alarm": 7
+  },
+  "per_stratum": {
+    "clean": {
+      "n": 10,
+      "correct": 6
+    },
+    "underspecified": {
+      "n": 8,
+      "correct": 3
+    },
+    "unfair_tests": {
+      "n": 8,
+      "correct": 6
+    },
+    "both": {
+      "n": 4,
+      "correct": 4
+    }
+  },
+  "mean_cost_usd": 0.5677301566666666,
+  "total_cost_usd": 17.0319047,
+  "mean_duration_s": 170.64496666666665,
+  "mean_turns": 7.8,
+  "mean_retries": 0,
+  "challenging": {
+    "instance_id": "astropy__astropy-12544",
+    "correct": true,
+    "pred": "us=2 fn=3 flag",
+    "human": "us=0 fn=3 flag"
+  }
+}

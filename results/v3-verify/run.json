@@ -1,0 +1,8 @@
+{
+  "run_id": "v3-verify",
+  "variant": "v3-verify",
+  "description": "v2 + deterministic evidence verification (quotes must exist where cited; scores >= 2 need verified evidence) with feedback retries.",
+  "model": "claude-opus-5",
+  "started_at": "2026-08-28T15:37:31.855Z",
+  "n_instances": 30
+}

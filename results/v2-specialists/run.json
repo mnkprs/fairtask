@@ -1,0 +1,8 @@
+{
+  "run_id": "v2-specialists",
+  "variant": "v2-specialists",
+  "description": "Judge agent orchestrating two specialist subagents (spec-probe, test-probe) with spot-check verification.",
+  "model": "claude-opus-5",
+  "started_at": "2026-08-28T15:37:29.556Z",
+  "n_instances": 30
+}

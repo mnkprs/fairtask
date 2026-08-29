@@ -1,0 +1,8 @@
+{
+  "run_id": "v7-sonnet-nocal",
+  "variant": "v7-sonnet-nocal",
+  "description": "v3 with both probes on claude-sonnet-5 (no calibration examples) — ablation isolating the probe model.",
+  "model": "claude-opus-5",
+  "started_at": "2026-08-28T21:03:03.658Z",
+  "n_instances": 30
+}

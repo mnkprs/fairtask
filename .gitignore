@@ -1,0 +1,8 @@
+node_modules/
+workspaces/
+data/raw/*.parquet
+results/**/scratch/
+.DS_Store
+*.log
+screenings/
+trajectories/screen-*/

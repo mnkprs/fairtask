@@ -1,0 +1,34 @@
+{
+  "name": "fairtask",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agentic screening of SWE-bench-style tasks for under-specification and unfair tests, scored against OpenAI's human annotations.",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "data:eval-set": "node src/data/build-eval-set.ts",
+    "data:calibration": "node src/data/build-calibration.ts",
+    "data:workspaces": "node src/data/prepare-workspaces.ts",
+    "run": "node src/run.ts",
+    "score": "node src/score.ts",
+    "trajectory": "node src/trajectory-view.ts",
+    "test": "node --test src/verify.test.ts",
+    "audit": "node src/evidence-audit.ts",
+    "code-check": "node src/code-check.ts",
+    "screen": "node src/screen.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.250",
+    "csv-parse": "^7.0.2",
+    "hyparquet": "^1.29.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "typescript": "^7.0.2"
+  }
+}

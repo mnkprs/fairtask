@@ -1,0 +1,8 @@
+{
+  "run_id": "v6-target-aware",
+  "variant": "v6-target-aware",
+  "description": "v4 + every agent told the reference label is the max over three annotators (strict-reviewer framing).",
+  "model": "claude-opus-5",
+  "started_at": "2026-08-28T20:45:53.447Z",
+  "n_instances": 30
+}
