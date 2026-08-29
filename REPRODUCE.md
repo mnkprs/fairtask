@@ -95,6 +95,9 @@ of them with `scripts/render-trajectories.sh <run-id>`.
 
 ## 5. Evaluate
 
+`npm run score` needs only the committed results. `evidence-audit`, `code-check` and `finalize-report.py` re-read the
+repositories at the base commit, so run `npm run data:workspaces` first (they refuse to run otherwise).
+
 ```bash
 npm run score -- baseline baseline-rerun v1-context v2-specialists v3-verify v4-calibrated v5-cheap-probes v5-rerun v6-target-aware v7-sonnet-nocal
 npm run score -- baseline v3-verify --detail          # per-instance rows

@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import type { EvalInstance } from "./lib/types.ts";
 import { ROOT, workspaceDir } from "./lib/paths.ts";
+import { requireWorkspaces } from "./lib/audit.ts";
 
 const STOP = new Set("self None True False def class return import from if else elif for while in not and or is assert with as try except raise pass lambda yield print len str int float list dict set tuple range isinstance type object super".split(" "));
 const idents = (text: string) => new Set([...text.matchAll(/[A-Za-z_][A-Za-z0-9_]{2,}/g)].map((m) => m[0]).filter((w) => !STOP.has(w) && w !== w.toUpperCase()));
@@ -24,6 +25,7 @@ export function novelIdentifiers(inst: EvalInstance): string[] {
 }
 
 const instances = JSON.parse(readFileSync(`${ROOT}data/eval/instances.json`, "utf8")) as EvalInstance[];
+requireWorkspaces(instances.map((i) => i.instance_id));
 const rows = instances.map((i) => ({ id: i.instance_id, fn: i.human.false_negative, novel: novelIdentifiers(i) })).sort((a, b) => b.novel.length - a.novel.length);
 console.log(`${"instance".padEnd(38)}fn  novel identifiers required by tests, introduced by the gold patch, absent from issue and repo`);
 for (const r of rows) console.log(`${r.id.padEnd(38)}${r.fn}   ${r.novel.length ? r.novel.slice(0, 6).join(", ") + (r.novel.length > 6 ? ` … (+${r.novel.length - 6})` : "") : "—"}`);
