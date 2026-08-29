@@ -203,7 +203,9 @@ for the high-recall one), `--model`, `--out`.
 
 The command prints the decision, both scores with their rationales, and every evidence item with its location, and
 writes `screenings/<instance_id>/verdict.json` plus the full trajectory. Two complete examples are committed under
-`examples/` (`django__django-11099`, `psf__requests-2317`), verdict and trajectory. A verdict looks like this (abridged, from the
+`examples/` (`django__django-11099`, `psf__requests-2317`), verdict and trajectory. `npm run show -- <instance_id>`
+writes an evaluation instance's pieces as separate readable files (issue, test patch, gold patch, human labels) —
+`examples/astropy__astropy-12544/` is the challenging case laid out that way. A verdict looks like this (abridged, from the
 challenging case):
 
 ```
@@ -503,6 +505,7 @@ consumer of every verdict; every number in this README is produced by `npm run s
 
 ```
 src/screen.ts               screen ONE task (yours or a SWE-bench id)     skills/fairtask/       the agent skill (SKILL.md, method, PR script)
+src/show.ts                 lay out one eval instance as readable files   examples/              committed screenings + the challenging case
 src/run.ts                  run one system over the eval set
 src/score.ts                metrics vs. human labels                     src/code-check.ts      zero-LLM pre-check for gold-only identifiers
 src/variants/*.ts           baseline + every iteration (agent prompts)   src/report.ts          README tables from summary.json
