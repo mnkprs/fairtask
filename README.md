@@ -313,7 +313,7 @@ at `REPRODUCE.md` instead.
 | `/fairtask-eval the headline report, baseline versus final` | `node src/report.ts …` — the two tables in §4, as aligned terminal tables. |
 | `/fairtask-eval audit evidence for v3-verify` | `npm run audit -- v3-verify` — share of cited quotes that do not exist where cited (needs `npm run data:workspaces`, which it tells you to run). |
 | `/fairtask-eval check the annotation provenance` | `npm run data:annotations -- --check` — SHA-256 of the committed file against the pinned source. |
-| `/fairtask-eval lay out astropy__astropy-12544` | `npm run show -- astropy__astropy-12544` — writes `examples/<id>/` and reads back the issue and the test patch. |
+| `/fairtask-eval lay out astropy__astropy-12544` | `npm run show -- astropy__astropy-12544` — writes `examples/<id>/`, then shows the human labels and quotes, with `file:line`, what the issue asks for and what the graded tests require. |
 | `/fairtask-eval what did the agent do on astropy__astropy-12544 in v3-verify` | renders and opens that run's trajectory. |
 
 ### What the skills may and may not do
