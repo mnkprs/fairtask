@@ -19,11 +19,14 @@ if (codex.version !== claude.version) fail("codex plugin.json: version differs f
 if (typeof codex.skills !== "string" || !existsSync(codex.skills)) fail("codex plugin.json: skills must point at an existing directory");
 const caps = codex.interface?.capabilities ?? [];
 for (const c of ["Read", "Write", "Network", "Execute"]) if (!caps.includes(c)) fail(`codex plugin.json: capabilities must disclose ${c} (the skill clones, installs and runs the engine)`);
+for (const name of ["fairtask", "fairtask-eval"]) {
+  const text = readFileSync(`skills/${name}/SKILL.md`, "utf8");
+  const front = text.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
+  if (!new RegExp(`^name: ${name}$`, "m").test(front)) fail(`skills/${name}/SKILL.md: frontmatter name must be ${name}`);
+  if (!/^description: .{40,}/m.test(front)) fail(`skills/${name}/SKILL.md: description missing or too short`);
+  if (/\$\d/.test(text)) fail(`skills/${name}/SKILL.md: contains $<digit> which the skill loader substitutes with invocation words`);
+}
 const skill = readFileSync("skills/fairtask/SKILL.md", "utf8");
-const fm = skill.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
-if (!/^name: fairtask$/m.test(fm)) fail("SKILL.md: frontmatter name must be fairtask");
-if (!/^description: .{40,}/m.test(fm)) fail("SKILL.md: description missing or too short");
-if (/\$\d/.test(skill)) fail("SKILL.md: contains $<digit> which the skill loader substitutes with invocation words");
 if (!/--branch v\d+\.\d+\.\d+/.test(skill)) fail("SKILL.md: engine install must pin a release tag");
 const pkg = read("package.json");
 if (pkg.version !== claude.version) fail(`package.json version ${pkg.version} differs from plugin version ${claude.version}`);
