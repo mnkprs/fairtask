@@ -11,6 +11,13 @@
   <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A5%2022.18-339933">
 </p>
 
+> **Scope.** Coding only, and one task shape only: *GitHub issue + repository at the pre-fix commit + hidden tests from
+> the fixing PR* — SWE-bench and its descendants (Verified, Multimodal, Multilingual, Pro, SWE-rebench, SWE-Gym/SWE-smith-style
+> RL tasks), in any language. "Fair" means two technical properties of such a task — the issue is specified well enough
+> to build from, and the graded tests accept every reasonable fix — not fairness in an ethical sense, and not difficulty,
+> contamination, flakiness, cost, or anything about the agents the benchmark grades. Function-synthesis, terminal, web,
+> math or financial benchmarks are out of scope.
+
 `fairtask` screens candidate software-engineering benchmark tasks — a GitHub issue, the repository at the pre-fix
 commit, and the hidden tests from the fixing PR — for the two defects that make such a task grade solvers unfairly:
 
