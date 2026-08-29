@@ -4063,7 +4063,7 @@ sphinx-doc__sphinx-8595,0.0,"The given issue description is clear and states tha
 sphinx-doc__sphinx-8599,1.0,"The issue is about customizing HTML links in Sphinx. The expectation is to replace default link for permalinks and source code links with FontAwesome icons. It mentions that the provided patch makes these changes possible by adding options like 'html_add_permalinks_html' and 'viewcode_sources_html'. With this patch users can set these options in 'conf.py' to use icons from FontAwesome. There are some missing details like configuration file and expected html output. There are some blanks to fill in about the issue, but there is a sensible interpretation of what is required for a successful solution.",2.0,"The test checks that the default permalink icon appears in the generated HTML. This ensures that the default configuration works correctly. The test sets the 'html_permalinks_icon' to a custom HTML string and verifies that this custom icon appears in the HTML. The test sets 'html_permalinks' to 'False' and verifies that no permalinks icons are generated in the HTML. A valid solution can have a 
  different configuration and source files which will fail the test.  The tests work but some perfectly reasonable solutions may be missed by the tests.",0.0,,1-4 hours,59,59,59,"[59, 70, 56]",majority,True
 sphinx-doc__sphinx-8611,3.0,"The issue described states that when using sphinx,an error occurs that states the attribute 'staticMetaObject' in class 'Reenter' is undocumented. The undocumented error appears from version 3.4.0 onwards and is not present in versions prior. The expected behaviour is to not encounter this issue as the attribute is inherited. There is no specific idea for a solution present in this description, just the expected outcome of the fix. The description provides a link to access the 'qtrio' repository as it is needed to debug for a solution. Due to it being an external repository, it is nearly impossible to find a solution.",3.0,"The test doesn’t cover what was described in the issue text. The issue description explains a problem with generating a documentation for a subclass where the parent class  that has some functions.
-``` class Reenter(QtCore.QObject):
+```class Reenter(QtCore.QObject):
     """"""A ``QtCore.QObject`` for handling reenter events.""""""
 
     def event(self, event: QtCore.QEvent) -> bool:
@@ -4075,7 +4075,7 @@ sphinx-doc__sphinx-8611,3.0,"The issue described states that when using sphinx,a
 ```
 `QtCore.QObject` has a function called `staticMetaObject`. The issue describe a problem generating documentation for the `Reenter` class because of a missing documentation for `staticMetaObject. But here the test is validating a different scenario. Having drilled down into the code base here is what I found out.
 
-``` class StrRepr(str):
+```class StrRepr(str):
         return self
 
 class AttCls:

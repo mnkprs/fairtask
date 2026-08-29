@@ -241,7 +241,11 @@ The repository also carries a Codex plugin manifest (`.codex-plugin/`). Packagin
 [ECC](https://github.com/affaan-m/ECC) — plugin manifest, marketplace file, `metadata.origin` in the skill —
 so the same skill installs the same way on every harness ECC supports.
 
-Then, in a session: `/fairtask django__django-11099`, `/fairtask task.json`, or `/fairtask astropy/astropy 12544`
+Then, in a session: `/fairtask django__django-11099`, `/fairtask task.json`, or `/fairtask astropy/astropy 12544`.
+A second skill, `/fairtask-eval`, runs the evaluation tooling from inside the session — `/fairtask-eval show the
+evaluation set`, `/fairtask-eval score baseline v3-verify`, `/fairtask-eval lay out astropy__astropy-12544` — and
+prints the scripts' output verbatim, so the numbers in a conversation come from the code, not from memory.
+The screening skill: `/fairtask …`
 (a pull request — `skills/fairtask/scripts/task-from-pr.sh` turns it into a task: base commit, linked issue text,
 code diff, test diff, added test functions). The skill runs `npm run screen` from `$FAIRTASK_HOME` (cloning the
 engine on first use), reports the verdict with every evidence item and its location, and — when the engine cannot
@@ -504,7 +508,8 @@ consumer of every verdict; every number in this README is produced by `npm run s
 ## 9. Layout
 
 ```
-src/screen.ts               screen ONE task (yours or a SWE-bench id)     skills/fairtask/       the agent skill (SKILL.md, method, PR script)
+src/screen.ts               screen ONE task (yours or a SWE-bench id)     skills/fairtask/       the screening skill (SKILL.md, method, PR script)
+skills/fairtask-eval/       the evaluation skill (runs the scripts in-chat)
 src/show.ts                 lay out one eval instance as readable files   examples/              committed screenings + the challenging case
 src/run.ts                  run one system over the eval set
 src/score.ts                metrics vs. human labels                     src/code-check.ts      zero-LLM pre-check for gold-only identifiers
