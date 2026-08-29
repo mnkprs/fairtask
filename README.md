@@ -80,8 +80,9 @@ pipeline. What the pipeline checks is *executability*. It cannot check the two t
 
 - In August 2024 OpenAI had 93 professional engineers annotate 1,699 SWE-bench tasks, three times each, on exactly
   these two questions, and kept the 500 that passed as **SWE-bench Verified**. 68% were filtered out — 38% for an
-  under-specified issue, 61% for tests that would reject reasonable solutions (the public annotation file is
-  `data/raw/ensembled_annotations_public.csv`).
+  under-specified issue, 61% for tests that would reject reasonable solutions. The public annotation file is
+  committed as `data/raw/ensembled_annotations_public.csv`; its provenance (publisher, pinned mirror commit, SHA-256,
+  what CI re-verifies) is in [`data/raw/SOURCES.md`](data/raw/SOURCES.md).
 - On 23 February 2026 OpenAI **stopped reporting SWE-bench Verified**. Auditing the hardest 27.6% of the set, they
   found that at least **59.4% of those problems had tests that reject functionally correct submissions**, on top of
   training contamination — i.e. the human-verified set still contained the second defect at scale

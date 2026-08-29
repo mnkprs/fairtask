@@ -33,7 +33,9 @@ npm run validate:manifests # semantic check of the plugin manifests and the skil
 Two public inputs, both already committed under `data/`:
 
 - `data/raw/ensembled_annotations_public.csv` — OpenAI's human annotations for 1,699 SWE-bench test instances
-  (three annotators per instance, ensembled by max severity). Published with *Introducing SWE-bench Verified* (Aug 2024).
+  (three annotators per instance, ensembled by max severity), published with *Introducing SWE-bench Verified* (Aug 2024).
+  Provenance and checksum: `data/raw/SOURCES.md`. `npm run data:annotations -- --check` verifies the committed copy;
+  `npm run data:annotations` re-downloads it from the pinned source commit and refuses a mismatching file.
 - `data/eval/instances.json` — the fixed evaluation set: 30 instances (seed `20260828`), each with its issue text,
   gold patch, test patch, FAIL_TO_PASS list and the human labels. `data/eval/calibration.json` holds the annotator
   notes for the *other* 1,600+ instances, grouped by repository (used by the final variant; contains no eval instance).
