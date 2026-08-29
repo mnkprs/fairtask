@@ -195,7 +195,7 @@ for the high-recall one), `--model`, `--out`.
 
 The command prints the decision, both scores with their rationales, and every evidence item with its location, and
 writes `screenings/<instance_id>/verdict.json` plus the full trajectory. Two complete examples are committed under
-`examples/` (`django__django-11099`, `psf__requests-2317` — the run shown in the video), verdict and trajectory. A verdict looks like this (abridged, from the
+`examples/` (`django__django-11099`, `psf__requests-2317`), verdict and trajectory. A verdict looks like this (abridged, from the
 challenging case):
 
 ```
@@ -478,5 +478,6 @@ src/lib/verify.ts           deterministic evidence verifier              src/lib
 src/lib/run.ts              runner: resume, retries, fatal-stop, costs   src/trajectory-view.ts JSONL → Markdown
 src/data/*.ts               eval-set / calibration / workspace builders  scripts/               render-trajectories, finalize-report
 data/eval/instances.json    the 30 cases with human labels               results/<run>/         predictions, summary, run.log
+trajectories/<run>/         one .jsonl + rendered .md per instance       REPRODUCE.md
 ```
 
