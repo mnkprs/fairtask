@@ -44,7 +44,8 @@ labels, not the agent — which is the report's main finding.
 # Node ≥ 22.18 (24 recommended), then `claude login` or export ANTHROPIC_API_KEY=…
 git clone https://github.com/mnkprs/fairtask && cd fairtask && npm ci
 
-# screen any SWE-bench-style task from Hugging Face (~3 min, ~$1 at list price)
+# screen any SWE-bench task by its instance id (~3 min, ~$1 at list price). Nothing to download first:
+# the command fetches the task from Hugging Face and shallow-clones the repository at the right commit.
 npm run screen -- --swebench django__django-11099
 
 # screen your own task (JSON format in §2b)
@@ -54,12 +55,17 @@ npm run screen -- --task my-task.json
 npx skills add mnkprs/fairtask
 ```
 
+The `--` after `npm run <script>` is npm's separator: everything after it goes to the script, not to npm.
+`django__django-11099` is a **SWE-bench instance id**, `<owner>__<repo>-<pull request number>`: the task built from
+Django pull request #11099. Full command reference: [§2c](#2c-command-reference).
+
 ## Where to go
 
 | I want to… | Read |
 |---|---|
 | Screen my own tasks | [§2b · Use it on your own tasks](#2b-use-it-on-your-own-tasks) |
 | Use it from inside an agent (skill / plugin) | [§2b · From inside your agent](#use-it-from-inside-your-agent) |
+| Look up a command and its flags | [§2c · Command reference](#2c-command-reference) |
 | Reproduce every number from a clean machine | [REPRODUCE.md](REPRODUCE.md) |
 | Understand the problem and who has it | [§1 · Who has this problem](#1-who-has-this-problem-and-what-is-the-bottleneck) |
 | See how the pipeline works | [§2 · What the solution does](#2-what-the-solution-does) |
@@ -252,6 +258,56 @@ engine on first use), reports the verdict with every evidence item and its locat
 run — falls back to a **manual mode** in which the agent itself follows the two probe procedures in
 `skills/fairtask/references/method.md` and self-checks its quotes. This is how a task-authoring session would use
 it: screen the PR you are about to turn into a task, before you spend an hour on it.
+
+## 2c. Command reference
+
+Every command is an npm script; flags go after `--`. Paths are relative to the repository root. "Run id" is the name of
+a directory under `results/` (the committed ones: `baseline`, `baseline-rerun`, `v1-context`, `v2-specialists`,
+`v3-verify`, `v4-calibrated`, `v5-cheap-probes`, `v5-rerun`, `v6-target-aware`, `v7-sonnet-nocal`). An **instance id**
+is a SWE-bench task name, `<owner>__<repo>-<PR number>`.
+
+### Screening one task (the product)
+
+| Command | What it does | Flags |
+|---|---|---|
+| `npm run screen -- --swebench <instance id>` | Fetches the task from Hugging Face, shallow-clones the repository at its base commit into `workspaces/<id>/repo`, runs the pipeline, prints the verdict, writes `screenings/<id>/verdict.json` + trajectory. | `--dataset <hf dataset>` (default `princeton-nlp/SWE-bench`; e.g. `princeton-nlp/SWE-bench_Verified`) · `--variant <name>` (default `v3-verify`; `v5-cheap-probes` = Sonnet probes, `v6-target-aware` = high recall) · `--model <id>` (default `claude-opus-5`) · `--out <dir>` (default `screenings`) · `--allow-unconfirmed` (screen a task file the PR script marked unconfirmed) |
+| `npm run screen -- --task <file.json>` | Same, for your own task. Required fields: `repo`, `base_commit`, `problem_statement`, `patch`, `test_patch`; optional `instance_id`, `FAIL_TO_PASS`. | same as above |
+| `skills/fairtask/scripts/task-from-pr.sh <owner/repo> <PR#> [--lenient] > task.json` | Builds a task file from a pull request with `gh`. Exits 3 when the PR has no linked issue, no test file, or no confirmable FAIL_TO_PASS; `--lenient` emits it marked `_status: unconfirmed`. | `--lenient` |
+
+### Evaluation (needs no API key: reads the committed results)
+
+| Command | What it does | Flags |
+|---|---|---|
+| `npm run score -- <run id> [<run id>…]` | Metrics of each run against the human labels, side by side; writes `results/<run>/summary.json`. | `--detail` (per-instance rows) · `--json` · `--common` (restrict to instances every listed run scored) |
+| `node src/report.ts --baseline <run> --final <run>` | The README tables (headline comparison + all-systems table) from the summaries. | `--final-repeat <run>` (show first run · repeat) · `--runs <run,run,…>` (rows of the all-systems table) |
+| `npm run audit -- <run id>…` | Post-hoc verifier: share of cited evidence that does not exist where cited. Needs workspaces. | — |
+| `npm run code-check` | Zero-LLM pre-check: identifiers required by graded tests, introduced by the gold patch, absent from issue and repository; TPR/TNR vs the human label. Needs workspaces. | — |
+| `npm run show -- <instance id>` | Lays out one evaluation instance as readable files in `examples/<id>/` (issue, test patch, gold patch, human labels, links). | `--out <dir>` |
+| `npm run trajectory -- <path.jsonl>` | Renders a trajectory as Markdown next to it. | `--full` (no truncation of tool output) |
+| `scripts/finalize-report.py <final run> <run>…` | Re-scores and regenerates the README/REPRODUCE tables. Needs workspaces. | — |
+
+### Running the pipeline over the evaluation set (needs `claude login` or `ANTHROPIC_API_KEY`)
+
+| Command | What it does | Flags |
+|---|---|---|
+| `npm run run -- --variant <name> --run-id <new id>` | Runs one system over all 30 instances (resumable; refuses to resume a run id with a different configuration). Variants: `baseline`, `v1-context`, `v2-specialists`, `v3-verify`, `v4-calibrated`, `v5-cheap-probes`, `v6-target-aware`, `v7-sonnet-nocal`. | `--model <id>` · `--only <id,id>` · `--concurrency <n>` (default 3) · `--force` (overwrite the run id) · `--retry-errors` (re-run errored instances) |
+
+### Data (public inputs; committed outputs are byte-exact reproductions)
+
+| Command | What it does | Flags |
+|---|---|---|
+| `npm run data:annotations` | Downloads OpenAI's annotation CSV from its pinned mirror commit; refuses to write it unless the SHA-256 matches. | `--check` (verify the committed copy offline) |
+| `npm run data:eval-set` | Rebuilds `data/eval/instances.json` (the 30 cases) from the SWE-bench parquet + annotations and prints the table. | `--n <count>` (default 30) · `--seed <int>` (default 20260828) |
+| `npm run data:calibration` | Rebuilds `data/eval/calibration.json` (annotator notes for non-evaluation instances, per repository). | — |
+| `npm run data:workspaces` | Shallow-clones the 30 repositories at their base commits (~20 s). | `--only <id,id>` · `--jobs <n>` (default 4) |
+
+### Checks
+
+| Command | What it does |
+|---|---|
+| `npm run typecheck` | TypeScript, no emit. |
+| `npm test` | 23 adversarial tests (verifier, workspace trust, run lock / concurrency). |
+| `npm run validate:manifests` | Semantic check of the plugin manifests and both skills. |
 
 ---
 
