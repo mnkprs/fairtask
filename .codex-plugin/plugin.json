@@ -1,0 +1,24 @@
+{
+  "name": "fairtask",
+  "version": "0.1.0",
+  "description": "Screen SWE-bench-style coding tasks for fairness: under-specified issues and tests that only accept the original fix. Verdicts with verified evidence.",
+  "author": { "name": "Manos Kaparos", "url": "https://github.com/mnkprs" },
+  "homepage": "https://github.com/mnkprs/fairtask",
+  "repository": "https://github.com/mnkprs/fairtask",
+  "license": "MIT",
+  "keywords": ["swe-bench", "benchmark", "evaluation", "task-quality", "skills"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "fairtask",
+    "shortDescription": "Is this SWE-bench-style task fair enough to grade an agent on?",
+    "longDescription": "fairtask screens a candidate task — a GitHub issue plus the pull request that fixed it — for the two defects that make it unfair: an under-specified issue, and tests that only accept the original author's choices. A judge agent dispatches two specialist probes with read-only access to the repository at the base commit; a deterministic verifier checks every quoted line. Measured against OpenAI's human SWE-bench Verified annotations.",
+    "developerName": "Manos Kaparos",
+    "category": "Coding",
+    "capabilities": ["Interactive", "Read"],
+    "websiteURL": "https://github.com/mnkprs/fairtask",
+    "defaultPrompt": [
+      "Use the fairtask skill to check whether SWE-bench task django__django-11099 is fair.",
+      "Use the fairtask skill to screen pull request 12544 of astropy/astropy before it becomes a task."
+    ]
+  }
+}

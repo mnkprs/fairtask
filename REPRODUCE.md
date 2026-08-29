@@ -61,6 +61,8 @@ npm run screen -- --task path/to/task.json                    # your own task; f
 
 Expect ~3 minutes and ~$1 (list price) per task; output in `screenings/<instance_id>/`.
 
+From inside an agent instead of a shell: `npx skills add mnkprs/fairtask`, then `/fairtask <instance-id | task.json | owner/repo PR#>`.
+
 ## 4. Run the baseline and the solution over the evaluation set
 
 ```bash

@@ -1,0 +1,19 @@
+{
+  "name": "fairtask",
+  "owner": { "name": "Manos Kaparos" },
+  "metadata": { "description": "fairtask — fairness screening for SWE-bench-style tasks, as an agent skill" },
+  "plugins": [
+    {
+      "name": "fairtask",
+      "source": "./",
+      "description": "Screen a SWE-bench-style task (issue + fixing PR) for an under-specified issue or tests that only accept the original fix; verdict with verified evidence.",
+      "version": "0.1.0",
+      "author": { "name": "Manos Kaparos" },
+      "homepage": "https://github.com/mnkprs/fairtask",
+      "repository": "https://github.com/mnkprs/fairtask",
+      "license": "MIT",
+      "keywords": ["swe-bench", "benchmark", "evaluation", "task-quality"],
+      "category": "testing"
+    }
+  ]
+}

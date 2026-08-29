@@ -177,6 +177,27 @@ with `--variant v5-cheap-probes`. Verdicts are recommendations for a human revie
 of any flagged task before dropping it — see §6 for why the labels the pipeline was tuned against are themselves
 imperfect.
 
+### Use it from inside your agent
+
+The same engine is packaged as an **agent skill** (`skills/fairtask/`), installable from the open skills registry:
+
+```bash
+npx skills add mnkprs/fairtask                       # skills.sh: installs the `fairtask` skill into Claude Code / Codex / Cursor / …
+/plugin marketplace add mnkprs/fairtask              # Claude Code plugin marketplace …
+/plugin install fairtask@fairtask                    # … then the plugin (skill + /fairtask command)
+```
+The repository also carries a Codex plugin manifest (`.codex-plugin/`). Packaging follows the conventions of
+[ECC](https://github.com/affaan-m/ECC) — plugin manifest, marketplace file, thin command shim, `metadata.origin` —
+so the same skill installs the same way on every harness ECC supports.
+
+Then, in a session: `/fairtask django__django-11099`, `/fairtask task.json`, or `/fairtask astropy/astropy 12544`
+(a pull request — `skills/fairtask/scripts/task-from-pr.sh` turns it into a task: base commit, linked issue text,
+code diff, test diff, added test functions). The skill runs `npm run screen` from `$FAIRTASK_HOME` (cloning the
+engine on first use), reports the verdict with every evidence item and its location, and — when the engine cannot
+run — falls back to a **manual mode** in which the agent itself follows the two probe procedures in
+`skills/fairtask/references/method.md` and self-checks its quotes. This is how a task-authoring session would use
+it: screen the PR you are about to turn into a task, before you spend an hour on it.
+
 ---
 
 ## 3. Evaluation design
@@ -407,7 +428,8 @@ consumer of every verdict; every number in this README is produced by `npm run s
 ## 9. Layout
 
 ```
-src/screen.ts               screen ONE task (yours or a SWE-bench id)     src/run.ts             run one system over the eval set
+src/screen.ts               screen ONE task (yours or a SWE-bench id)     skills/fairtask/       the agent skill (SKILL.md, method, PR script)
+src/run.ts                  run one system over the eval set
 src/score.ts                metrics vs. human labels                     src/code-check.ts      zero-LLM pre-check for gold-only identifiers
 src/variants/*.ts           baseline + every iteration (agent prompts)   src/report.ts          README tables from summary.json
 src/lib/rubric.ts           the shared 0-3 rubric                        src/evidence-audit.ts  post-hoc verifier over any run

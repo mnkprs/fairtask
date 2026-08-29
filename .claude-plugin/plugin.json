@@ -1,0 +1,12 @@
+{
+  "name": "fairtask",
+  "version": "0.1.0",
+  "description": "Screen SWE-bench-style coding tasks for fairness before they become benchmark or RL tasks: is the issue specified well enough, and do the graded tests accept every reasonable fix? One skill (/fairtask) that drives an agent pipeline with verified evidence.",
+  "author": { "name": "Manos Kaparos", "url": "https://github.com/mnkprs" },
+  "homepage": "https://github.com/mnkprs/fairtask",
+  "repository": "https://github.com/mnkprs/fairtask",
+  "license": "MIT",
+  "keywords": ["swe-bench", "benchmark", "evaluation", "rl-environment", "task-quality", "skills", "agents"],
+  "skills": ["./skills/"],
+  "commands": ["./commands/"]
+}
