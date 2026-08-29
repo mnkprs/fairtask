@@ -1,6 +1,15 @@
-# fairtask — is this SWE-bench task fair enough to grade an agent on?
+<h1 align="center">fairtask</h1>
 
-*micro1 Agentic Workflows Hackathon, August 2026.* [![ci](https://github.com/mnkprs/fairtask/actions/workflows/ci.yml/badge.svg)](https://github.com/mnkprs/fairtask/actions/workflows/ci.yml) · [skill: `npx skills add mnkprs/fairtask`](https://skills.sh/mnkprs/fairtask/fairtask)
+<p align="center"><strong>Is this SWE-bench-style task fair enough to grade an agent on?</strong><br>
+<sub>Agentic screening with verified evidence, measured against human annotations · micro1 Agentic Workflows Hackathon, August 2026</sub></p>
+
+<p align="center">
+  <a href="https://github.com/mnkprs/fairtask/actions/workflows/ci.yml"><img alt="ci" src="https://img.shields.io/github/actions/workflow/status/mnkprs/fairtask/ci.yml?branch=main&label=ci"></a>
+  <a href="https://github.com/mnkprs/fairtask/releases/tag/v0.1.0"><img alt="release" src="https://img.shields.io/github/v/release/mnkprs/fairtask?label=submission"></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
+  <a href="https://skills.sh/mnkprs/fairtask/fairtask"><img alt="skill" src="https://img.shields.io/badge/agent%20skill-%2Ffairtask-0F766E"></a>
+  <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A5%2022.6-339933">
+</p>
 
 `fairtask` screens candidate software-engineering benchmark tasks — a GitHub issue, the repository at the pre-fix
 commit, and the hidden tests from the fixing PR — for the two defects that make such a task grade solvers unfairly:
@@ -22,16 +31,36 @@ spread. What the agent changes is measurable elsewhere: the evidence it cites is
 thirty cases are wrong for *every* system built here, and §6 shows with checkable examples that they trace to the
 labels, not the agent — which is the report's main finding.
 
-
-### Quick start
+## Quick start
 
 ```bash
-git clone https://github.com/mnkprs/fairtask && cd fairtask && npm ci     # Node ≥ 22.6; then `claude login` or ANTHROPIC_API_KEY
-npm run screen -- --swebench django__django-11099                        # screen any SWE-bench-style task (~3 min, ~$1)
-npm run screen -- --task my-task.json                                    # or your own task (format in §2b)
-npx skills add mnkprs/fairtask                                           # or use it from inside your agent: /fairtask <id | task.json | owner/repo PR#>
+# Node ≥ 22.6, then `claude login` or export ANTHROPIC_API_KEY=…
+git clone https://github.com/mnkprs/fairtask && cd fairtask && npm ci
+
+# screen any SWE-bench-style task from Hugging Face (~3 min, ~$1 at list price)
+npm run screen -- --swebench django__django-11099
+
+# screen your own task (JSON format in §2b)
+npm run screen -- --task my-task.json
+
+# or use it from inside your agent:  /fairtask <id | task.json | owner/repo PR#>
+npx skills add mnkprs/fairtask
 ```
 
+## Where to go
+
+| I want to… | Read |
+|---|---|
+| Screen my own tasks | [§2b · Use it on your own tasks](#2b-use-it-on-your-own-tasks) |
+| Use it from inside an agent (skill / plugin) | [§2b · From inside your agent](#use-it-from-inside-your-agent) |
+| Reproduce every number from a clean machine | [REPRODUCE.md](REPRODUCE.md) |
+| Understand the problem and who has it | [§1 · Who has this problem](#1-who-has-this-problem-and-what-is-the-bottleneck) |
+| See how the pipeline works | [§2 · What the solution does](#2-what-the-solution-does) |
+| Check how it was evaluated | [§3 · Evaluation design](#3-evaluation-design) · [§4 · Results](#4-results) |
+| Follow what was tried, kept and removed | [§5 · Improvement changelog](#5-improvement-changelog) |
+| Read the main finding | [§6 · Failure mode and hot take](#6-main-failure-mode-and-the-hot-take) |
+| See what outside review changed | [§6b · Code review](#6b-adversarial-review-and-what-changed-because-of-it) · [§6c · Eval audit](#6c-evaluation-methodology-audit-evals-skills-eval-audit) |
+| Find a file | [§9 · Layout](#9-layout) |
 
 ---
 
