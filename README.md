@@ -48,7 +48,7 @@ git clone https://github.com/mnkprs/fairtask && cd fairtask && npm ci
 # the command fetches the task from Hugging Face and shallow-clones the repository at the right commit.
 npm run screen -- --swebench django__django-11099
 
-# screen your own task (JSON format in §2b)
+# screen your own task (JSON format in §2a)
 npm run screen -- --task my-task.json
 
 # or use it from inside your agent:  /fairtask <id | task.json | owner/repo PR#>
@@ -63,8 +63,8 @@ Django pull request #11099. Full command reference: [§2c](#2c-command-reference
 
 | I want to… | Read |
 |---|---|
-| Screen my own tasks | [§2b · Use it on your own tasks](#2b-use-it-on-your-own-tasks) |
-| Use it from inside an agent (skill / plugin) | [§2b · From inside your agent](#use-it-from-inside-your-agent) |
+| Screen my own tasks from a shell | [§2a · Use it from a shell](#2a-use-it-from-a-shell) |
+| Use it from inside an agent (the agentic interface) | [§2b · Use it from inside your agent](#2b-use-it-from-inside-your-agent) |
 | Look up a command and its flags | [§2c · Command reference](#2c-command-reference) |
 | Reproduce every number from a clean machine | [REPRODUCE.md](REPRODUCE.md) |
 | Understand the problem and who has it | [§1 · Who has this problem](#1-who-has-this-problem-and-what-is-the-bottleneck) |
@@ -172,9 +172,9 @@ read-only, workspaces are throwaway shallow clones) and no external action is ta
 
 ---
 
-## 2b. Use it on your own tasks
+## 2a. Use it from a shell
 
-fairtask screens one task at a time; the evaluation harness in §3–§5 is built on top of the same command.
+fairtask screens one task at a time; the evaluation harness in §3–§5 is built on top of the same command. If you work inside an agent rather than a terminal, start with [§2b](#2b-use-it-from-inside-your-agent) instead.
 
 ```bash
 git clone https://github.com/mnkprs/fairtask && cd fairtask && npm ci
@@ -234,80 +234,164 @@ with `--variant v5-cheap-probes`. Verdicts are recommendations for a human revie
 of any flagged task before dropping it — see §6 for why the labels the pipeline was tuned against are themselves
 imperfect.
 
-### Use it from inside your agent
+---
 
-The same engine is packaged as an **agent skill** (`skills/fairtask/`), installable from the open skills registry:
+## 2b. Use it from inside your agent
 
-```bash
-npx skills add mnkprs/fairtask                       # skills.sh: installs the `fairtask` skill into Claude Code / Codex / Cursor / …
-/plugin marketplace add mnkprs/fairtask              # Claude Code plugin marketplace …
-/plugin install fairtask@fairtask                    # … then the plugin (the /fairtask skill)
+This is the interface the project is built for. The people who screen tasks in 2026 do it inside agents — a
+Claude Code or Codex session that already has the repository open, the PR in front of it, and the rest of the
+task-authoring workflow around it. fairtask ships as **two agent skills** on top of the same engine, so the screening
+and the evaluation happen in the conversation, and the numbers a session reports come from the scripts, not from
+the model's memory.
+
+### Install once
+
+| Where you work | Install | What you get |
+|---|---|---|
+| Any harness that reads the open skills registry (Claude Code, Codex, Cursor, OpenCode, …) | `npx skills add mnkprs/fairtask` | both skills, installed into that harness's skills directory |
+| Claude Code, as a plugin | `/plugin marketplace add mnkprs/fairtask` then `/plugin install fairtask@fairtask` | both skills (plugin manifest in `.claude-plugin/`) |
+| Codex, as a plugin | the repository carries `.codex-plugin/plugin.json` | both skills |
+
+Both skills need Node ≥ 22.18 and git. `/fairtask` also needs a Claude login or `ANTHROPIC_API_KEY`, because it runs
+the model; `/fairtask-eval` needs neither.
+
+### `/fairtask` — screen a task
+
+Give it any of three things; it does the rest and reports in the conversation.
+
+| You type | What happens |
+|---|---|
+| `/fairtask django__django-11099` | Fetches that SWE-bench instance from Hugging Face, shallow-clones Django at the task's base commit, runs the judge and the two probes, verifies every quoted line, and reports the verdict. |
+| `/fairtask my-task.json` | Same for your own task file (`repo`, `base_commit`, `problem_statement`, `patch`, `test_patch`, `FAIL_TO_PASS`). |
+| `/fairtask astropy/astropy 12544` | A pull request. The skill first runs `scripts/task-from-pr.sh`, which builds the task file from the PR with `gh` (base commit, the linked issue's text, code diff, test diff, added tests). It **fails closed** — exits with reasons — if the PR has no linked issue, no test file, or no graded test it can confirm; the skill reports those reasons and stops unless you explicitly accept a provisional screening. Then it screens the task. |
+
+What comes back, verbatim from the session that produced `examples/psf__requests-2317/`:
+
 ```
-The repository also carries a Codex plugin manifest (`.codex-plugin/`). Packaging follows the conventions of
-[ECC](https://github.com/affaan-m/ECC) — plugin manifest, marketplace file, `metadata.origin` in the skill —
-so the same skill installs the same way on every harness ECC supports.
+USABLE   underspecified=0  false_negative=1  confidence=4/5  (evidence verified)
 
-Then, in a session: `/fairtask django__django-11099`, `/fairtask task.json`, or `/fairtask astropy/astropy 12544`.
-A second skill, `/fairtask-eval`, runs the evaluation tooling from inside the session — `/fairtask-eval show the
-evaluation set`, `/fairtask-eval score baseline v3-verify`, `/fairtask-eval lay out astropy__astropy-12544` — and
-prints the scripts' output verbatim, so the numbers in a conversation come from the code, not from memory.
-The screening skill: `/fairtask …`
-(a pull request — `skills/fairtask/scripts/task-from-pr.sh` turns it into a task: base commit, linked issue text,
-code diff, test diff, added test functions). The skill runs `npm run screen` from `$FAIRTASK_HOME` (cloning the
-engine on first use), reports the verdict with every evidence item and its location, and — when the engine cannot
-run — falls back to a **manual mode** in which the agent itself follows the two probe procedures in
-`skills/fairtask/references/method.md` and self-checks its quotes. This is how a task-authoring session would use
-it: screen the PR you are about to turn into a task, before you spend an hour on it.
+Issue specification (0): the issue names the exact file and line (requests/sessions.py: method = builtin_str(method)),
+the wrong behaviour (b'GET' becomes the literal "b'GET'" under Python 3, yielding 404), and the desired behaviour …
+
+Test scope (1): the new test asserts only that requests.request(b'GET', …).ok, so any normalisation strategy passes …
+
+Evidence (3):
+  [underspecified] repo requests/sessions.py:L21
+     › from .utils import to_key_val_list, default_headers, to_native_string
+  [false_negative] repo test_requests.py:L140-L142
+     › def test_HTTP_302_ALLOW_REDIRECT_GET(self): r = requests.get(httpbin('redirect', '1')) …
+  [false_negative] test_patch test_requests.py
+     › r = requests.request(b'GET', httpbin('get')); assert r.ok
+
+$0.49 · 195s · 8 turns
+```
+
+The skill then says what to do with it: for FLAG, open the cited lines and decide; for USABLE, nothing. It presents
+every verdict as a recommendation for a human reviewer, never as ground truth — on the evaluation set this pipeline
+agrees with expert humans about as often as a one-prompt baseline; what it adds is evidence you can check.
+
+How it finds the engine: `FAIRTASK_HOME` if set, else `~/.fairtask`; if neither exists it clones **the pinned
+release tag** (`--branch v0.1.0`), never a moving branch, runs `npm ci`, and says so. If the engine cannot run at all
+(no Node, no credentials), the skill switches to **manual mode**: it performs the two probes' procedures itself with
+its own read-only tools, following `skills/fairtask/references/method.md`, re-opens every location it cites to
+confirm the quote, and states in the report that the quotes were self-checked rather than machine-verified.
+
+### `/fairtask-eval` — reproduce and inspect the evaluation
+
+Everything a judge or reviewer might want to see, run from inside the session with the output printed verbatim.
+No model calls; offline except the two pinned data downloads; it refuses to start paid reproduction runs and points
+at `REPRODUCE.md` instead.
+
+| You type | What it runs, and shows |
+|---|---|
+| `/fairtask-eval show the evaluation set` | `npm run data:eval-set` — the 30-row table (instance, stratum, human scores, difficulty, sizes) and the per-stratum and per-repository counts. |
+| `/fairtask-eval score baseline v3-verify` | `npm run score -- baseline v3-verify` — decision accuracy, κ, TPR/TNR, missed/false alarms, per-axis agreement, cost and time, side by side. |
+| `/fairtask-eval the headline report, baseline versus final` | `node src/report.ts …` — the two tables in §4. |
+| `/fairtask-eval audit evidence for v3-verify` | `npm run audit -- v3-verify` — share of cited quotes that do not exist where cited (needs `npm run data:workspaces`, which it tells you to run). |
+| `/fairtask-eval check the annotation provenance` | `npm run data:annotations -- --check` — SHA-256 of the committed file against the pinned source. |
+| `/fairtask-eval lay out astropy__astropy-12544` | `npm run show -- astropy__astropy-12544` — writes `examples/<id>/` and reads back the issue and the test patch. |
+| `/fairtask-eval what did the agent do on astropy__astropy-12544 in v3-verify` | renders and opens that run's trajectory. |
+
+### What the skills may and may not do
+
+- The screening agents get read-only tools (`Read`, `Grep`, `Glob`) and a hook that denies any path outside the task's
+  repository — they cannot read the evaluation labels, other tasks, or your files. Only the two declared probes can be
+  dispatched. Nothing is written to the repository under review; workspaces are throwaway shallow clones.
+- `/fairtask` spends money (about $1 per task at list price; $0.55 with `--variant v5-cheap-probes`) and says so.
+  `/fairtask-eval` spends nothing.
+- A verdict is triage, not a decision. The human reviewer adjudicates flagged tasks from the cited lines.
 
 ## 2c. Command reference
 
-Every command is an npm script; flags go after `--`. Paths are relative to the repository root. "Run id" is the name of
-a directory under `results/` (the committed ones: `baseline`, `baseline-rerun`, `v1-context`, `v2-specialists`,
-`v3-verify`, `v4-calibrated`, `v5-cheap-probes`, `v5-rerun`, `v6-target-aware`, `v7-sonnet-nocal`). An **instance id**
-is a SWE-bench task name, `<owner>__<repo>-<PR number>`.
+Every command is an npm script. The `--` after `npm run <script>` is npm's separator: what follows it goes to the
+script, not to npm. An **instance id** is a SWE-bench task name, `<owner>__<repo>-<pull request number>`. A **run id**
+is a directory under `results/`; the committed ones are `baseline`, `baseline-rerun`, `v1-context`, `v2-specialists`,
+`v3-verify`, `v4-calibrated`, `v5-cheap-probes`, `v5-rerun`, `v6-target-aware`, `v7-sonnet-nocal`. Each row below is
+a complete command; rows with the same script differ by one flag.
 
-### Screening one task (the product)
+### Screen one task
 
-| Command | What it does | Flags |
-|---|---|---|
-| `npm run screen -- --swebench <instance id>` | Fetches the task from Hugging Face, shallow-clones the repository at its base commit into `workspaces/<id>/repo`, runs the pipeline, prints the verdict, writes `screenings/<id>/verdict.json` + trajectory. | `--dataset <hf dataset>` (default `princeton-nlp/SWE-bench`; e.g. `princeton-nlp/SWE-bench_Verified`) · `--variant <name>` (default `v3-verify`; `v5-cheap-probes` = Sonnet probes, `v6-target-aware` = high recall) · `--model <id>` (default `claude-opus-5`) · `--out <dir>` (default `screenings`) · `--allow-unconfirmed` (screen a task file the PR script marked unconfirmed) |
-| `npm run screen -- --task <file.json>` | Same, for your own task. Required fields: `repo`, `base_commit`, `problem_statement`, `patch`, `test_patch`; optional `instance_id`, `FAIL_TO_PASS`. | same as above |
-| `skills/fairtask/scripts/task-from-pr.sh <owner/repo> <PR#> [--lenient] > task.json` | Builds a task file from a pull request with `gh`. Exits 3 when the PR has no linked issue, no test file, or no confirmable FAIL_TO_PASS; `--lenient` emits it marked `_status: unconfirmed`. | `--lenient` |
+| Command | What it does |
+|---|---|
+| `npm run screen -- --swebench django__django-11099` | Fetches the task from the `princeton-nlp/SWE-bench` test split on Hugging Face, shallow-clones `django/django` at its base commit into `workspaces/django__django-11099/repo`, runs the default pipeline (`v3-verify`) with `claude-opus-5`, prints the verdict, writes `screenings/django__django-11099/verdict.json` and the trajectory next to it. |
+| `npm run screen -- --swebench astropy__astropy-12544 --dataset princeton-nlp/SWE-bench_Verified` | Same, taking the instance from another SWE-bench-style dataset on Hugging Face. |
+| `npm run screen -- --task my-task.json` | Screens your own task. Required fields: `repo` (`owner/name` or URL), `base_commit`, `problem_statement`, `patch` (gold), `test_patch`; optional `instance_id`, `FAIL_TO_PASS`. Refuses a file marked `_status: unconfirmed`. |
+| `npm run screen -- --task my-task.json --allow-unconfirmed` | Screens it anyway; the test-axis score is provisional. |
+| `npm run screen -- --swebench <id> --variant v5-cheap-probes` | Uses Sonnet 5 for the two probes (judge stays on Opus 5): same decisions within noise, about 40% cheaper. `v6-target-aware` is the high-recall configuration; any variant name from `src/variants/` works. |
+| `npm run screen -- --swebench <id> --model claude-sonnet-5` | Runs the judge (and probes, unless the variant pins them) on another model. |
+| `npm run screen -- --swebench <id> --out /tmp/screenings` | Writes the verdict and trajectory under another directory. |
+| `skills/fairtask/scripts/task-from-pr.sh astropy/astropy 12544 > task.json` | Builds a task file from a pull request with `gh`: base commit, the linked issue's text (from whichever repository it lives in), code diff, test diff, added test functions. Exits 3 with reasons if the PR has no linked issue, no test file, or no confirmable graded test. |
+| `skills/fairtask/scripts/task-from-pr.sh astropy/astropy 12544 --lenient > task.json` | Emits the task anyway, marked `_status: unconfirmed` with the reasons in `_problems`. |
 
-### Evaluation (needs no API key: reads the committed results)
+### Evaluate (no API key needed: reads the committed results)
 
-| Command | What it does | Flags |
-|---|---|---|
-| `npm run score -- <run id> [<run id>…]` | Metrics of each run against the human labels, side by side; writes `results/<run>/summary.json`. | `--detail` (per-instance rows) · `--json` · `--common` (restrict to instances every listed run scored) |
-| `node src/report.ts --baseline <run> --final <run>` | The README tables (headline comparison + all-systems table) from the summaries. | `--final-repeat <run>` (show first run · repeat) · `--runs <run,run,…>` (rows of the all-systems table) |
-| `npm run audit -- <run id>…` | Post-hoc verifier: share of cited evidence that does not exist where cited. Needs workspaces. | — |
-| `npm run code-check` | Zero-LLM pre-check: identifiers required by graded tests, introduced by the gold patch, absent from issue and repository; TPR/TNR vs the human label. Needs workspaces. | — |
-| `npm run show -- <instance id>` | Lays out one evaluation instance as readable files in `examples/<id>/` (issue, test patch, gold patch, human labels, links). | `--out <dir>` |
-| `npm run trajectory -- <path.jsonl>` | Renders a trajectory as Markdown next to it. | `--full` (no truncation of tool output) |
-| `scripts/finalize-report.py <final run> <run>…` | Re-scores and regenerates the README/REPRODUCE tables. Needs workspaces. | — |
+| Command | What it does |
+|---|---|
+| `npm run score -- baseline v3-verify` | Prints the metrics of each run against the human labels side by side (decision accuracy, κ, TPR/TNR, missed problems / false alarms, both-axes agreement, per-axis exact and ±1, cost, time) and writes `results/<run>/summary.json`. Any number of run ids. |
+| `npm run score -- baseline v3-verify --detail` | Adds one row per instance: human scores, predicted scores, decision, cost. |
+| `npm run score -- baseline v3-verify --common` | Restricts every run to the instances all listed runs scored (for comparing partial runs). |
+| `npm run score -- baseline --json` | The summary as JSON instead of the table. |
+| `node src/report.ts --baseline baseline --final v3-verify` | Prints the README's headline comparison table for those two runs. |
+| `node src/report.ts --baseline baseline --final v5-cheap-probes --final-repeat v5-rerun` | Shows the final configuration as "first run · repeat run" in the headline table. |
+| `node src/report.ts --baseline baseline --final v3-verify --runs baseline,v1-context,v3-verify` | Adds the all-systems table with those runs as rows. |
+| `npm run audit -- baseline v3-verify` | Runs the deterministic verifier over every stored verdict: how many cited quotes do not exist where cited. Needs cloned workspaces at the right commits (refuses otherwise). |
+| `npm run code-check` | The zero-LLM pre-check: identifiers used by graded tests, introduced by the gold patch, absent from issue and repository; prints per-instance hits and TPR/TNR against the human label. Needs workspaces. |
+| `npm run show -- astropy__astropy-12544` | Writes `examples/astropy__astropy-12544/{issue.md,test.patch,gold.patch,human-labels.md}` with links to the repository, base commit and pull request. |
+| `npm run show -- astropy__astropy-12544 --out /tmp/views` | Same, under another directory. |
+| `npm run trajectory -- trajectories/v3-verify/astropy__astropy-12544.jsonl` | Renders a trajectory (instructions → tool calls → probe reports → verification → verdict) as Markdown next to the JSONL, with long tool outputs truncated. |
+| `npm run trajectory -- trajectories/v3-verify/astropy__astropy-12544.jsonl --full` | Same without truncation. |
+| `scripts/finalize-report.py v3-verify baseline baseline-rerun v1-context …` | Re-scores every listed run and regenerates the README and REPRODUCE tables. Needs workspaces. |
 
-### Running the pipeline over the evaluation set (needs `claude login` or `ANTHROPIC_API_KEY`)
+### Run the pipeline over the evaluation set (needs `claude login` or `ANTHROPIC_API_KEY`)
 
-| Command | What it does | Flags |
-|---|---|---|
-| `npm run run -- --variant <name> --run-id <new id>` | Runs one system over all 30 instances (resumable; refuses to resume a run id with a different configuration). Variants: `baseline`, `v1-context`, `v2-specialists`, `v3-verify`, `v4-calibrated`, `v5-cheap-probes`, `v6-target-aware`, `v7-sonnet-nocal`. | `--model <id>` · `--only <id,id>` · `--concurrency <n>` (default 3) · `--force` (overwrite the run id) · `--retry-errors` (re-run errored instances) |
+| Command | What it does |
+|---|---|
+| `npm run run -- --variant v3-verify --run-id v3-verify-repro` | Runs one system over all 30 instances at concurrency 3, writing `results/v3-verify-repro/predictions.jsonl` and one trajectory per instance. Resumable: instances already in the file are skipped. Variants: `baseline`, `v1-context`, `v2-specialists`, `v3-verify`, `v4-calibrated`, `v5-cheap-probes`, `v6-target-aware`, `v7-sonnet-nocal`. |
+| `npm run run -- --variant baseline --run-id baseline-repro --model claude-sonnet-5` | Same with another model. |
+| `npm run run -- --variant v3-verify --run-id smoke --only sympy__sympy-14711,psf__requests-1888` | Only those instances. |
+| `npm run run -- --variant v3-verify --run-id v3-verify-repro --concurrency 2` | Fewer parallel sessions (use 4–5 total on a Claude subscription). |
+| `npm run run -- --variant v3-verify --run-id v3-verify-repro --retry-errors` | Re-runs the instances that errored last time (their rows move to an attempts ledger; their cost stays in the totals). |
+| `npm run run -- --variant v3-verify --run-id v3-verify-repro --force` | Discards the run directory and starts over. Without it, a run id refuses to resume under a different configuration. |
 
-### Data (public inputs; committed outputs are byte-exact reproductions)
+### Data (public inputs; the committed outputs are byte-exact reproductions)
 
-| Command | What it does | Flags |
-|---|---|---|
-| `npm run data:annotations` | Downloads OpenAI's annotation CSV from its pinned mirror commit; refuses to write it unless the SHA-256 matches. | `--check` (verify the committed copy offline) |
-| `npm run data:eval-set` | Rebuilds `data/eval/instances.json` (the 30 cases) from the SWE-bench parquet + annotations and prints the table. | `--n <count>` (default 30) · `--seed <int>` (default 20260828) |
-| `npm run data:calibration` | Rebuilds `data/eval/calibration.json` (annotator notes for non-evaluation instances, per repository). | — |
-| `npm run data:workspaces` | Shallow-clones the 30 repositories at their base commits (~20 s). | `--only <id,id>` · `--jobs <n>` (default 4) |
+| Command | What it does |
+|---|---|
+| `npm run data:annotations` | Downloads OpenAI's annotation CSV from its pinned mirror commit and refuses to write it unless the SHA-256 matches the value recorded in `data/raw/SOURCES.md`. |
+| `npm run data:annotations -- --check` | Verifies the committed CSV against that SHA-256, offline. |
+| `npm run data:eval-set` | Rebuilds `data/eval/instances.json` — the 30 cases — from the SWE-bench parquet and the annotations with the fixed seed, and prints the table. |
+| `npm run data:eval-set -- --seed 7 --n 50` | Builds a different sample (for a held-out set); do not commit it over the original. |
+| `npm run data:calibration` | Rebuilds `data/eval/calibration.json` (annotator notes for non-evaluation instances, per repository) and asserts no evaluation instance leaks in. |
+| `npm run data:workspaces` | Shallow-clones the 30 repositories at their base commits into `workspaces/` (about 20 s). |
+| `npm run data:workspaces -- --only sympy__sympy-14711 --jobs 2` | Only those instances, with that many parallel clones. |
 
 ### Checks
 
 | Command | What it does |
 |---|---|
 | `npm run typecheck` | TypeScript, no emit. |
-| `npm test` | 23 adversarial tests (verifier, workspace trust, run lock / concurrency). |
-| `npm run validate:manifests` | Semantic check of the plugin manifests and both skills. |
+| `npm test` | 23 adversarial tests: verifier (fabricated, elided, cross-hunk, removed-line and symlinked quotes), workspace trust (symlinked path, dirty tree, wrong remote, bad commit), run lock and screening ids. |
+| `npm run validate:manifests` | Semantic check of the plugin manifests and both skills' frontmatter. |
 
 ---
 
