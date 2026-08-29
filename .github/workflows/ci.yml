@@ -32,7 +32,8 @@ jobs:
           npm run data:eval-set > /dev/null
           npm run data:calibration > /dev/null
           git diff --exit-code -- data/eval/instances.json data/eval/calibration.json
-      - name: plugin manifests are valid and describe one skill
+      - name: plugin manifests are semantically valid and describe one skill
         run: |
-          node -e "for (const f of ['.claude-plugin/plugin.json','.claude-plugin/marketplace.json','.codex-plugin/plugin.json']) { const j = JSON.parse(require('fs').readFileSync(f,'utf8')); if (!j.version && !j.plugins) throw new Error(f + ': version missing') }"
+          npm run validate:manifests
           npx --yes @anthropic-ai/claude-code@2.1.250 --plugin-dir . plugin details fairtask | grep -E "Skills \(1\)"
+          npx --yes skills add . --list 2>&1 | grep -q "fairtask"

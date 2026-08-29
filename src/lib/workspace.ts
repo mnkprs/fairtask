@@ -16,6 +16,7 @@ async function git(cwd: string, ...a: string[]) {
  * refused: they would be written into prompts, trajectories and verdicts. Use a git credential helper instead.
  */
 export function repoUrl(repo: string): string {
+  if (repo.startsWith("file://")) return repo; // local mirrors (offline use, tests)
   if (/^https?:\/\//.test(repo) || repo.startsWith("git@")) {
     if (/^https?:\/\/[^/]*@/.test(repo) || /[?#]/.test(repo)) throw new Error("repository URLs must not carry credentials or query strings; configure a git credential helper for private repositories");
     return repo.endsWith(".git") ? repo : `${repo}.git`;

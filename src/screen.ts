@@ -13,12 +13,13 @@ import { VARIANTS } from "./variants/index.ts";
 import { runOne } from "./lib/run.ts";
 import { prepareWorkspace } from "./lib/workspace.ts";
 import { ROOT, assertSlug, trajectoryPath } from "./lib/paths.ts";
+import { attemptId } from "./lib/run.ts";
 import { resolve, sep } from "node:path";
 
 const args = new Map<string, string>();
 const argv = process.argv.slice(2);
 for (let i = 0; i < argv.length; i++) { const a = argv[i]!; if (!a.startsWith("--")) continue; const n = argv[i + 1]; if (n === undefined || n.startsWith("--")) args.set(a.slice(2), "true"); else { args.set(a.slice(2), n); i++; } }
-const usage = () => { console.error("usage: npm run screen -- (--task task.json | --swebench <instance_id> [--dataset princeton-nlp/SWE-bench]) [--variant v3-verify] [--model claude-opus-5] [--out screenings]"); process.exit(2); };
+const usage = () => { console.error("usage: npm run screen -- (--task task.json | --swebench <instance_id> [--dataset princeton-nlp/SWE-bench]) [--variant v3-verify] [--model claude-opus-5] [--out screenings] [--allow-unconfirmed]"); process.exit(2); };
 
 async function fromHuggingFace(instanceId: string, dataset: string): Promise<TaskInstance> {
   const url = `https://datasets-server.huggingface.co/filter?dataset=${encodeURIComponent(dataset)}&config=default&split=test&where=${encodeURIComponent(`"instance_id"='${instanceId}'`)}&length=1`;
@@ -31,7 +32,9 @@ async function fromHuggingFace(instanceId: string, dataset: string): Promise<Tas
 }
 
 function fromFile(path: string): TaskInstance {
-  const t = JSON.parse(readFileSync(path, "utf8")) as Partial<TaskInstance>;
+  const t = JSON.parse(readFileSync(path, "utf8")) as Partial<TaskInstance> & { _status?: string; _problems?: string[] };
+  // A task the PR script could not confirm is refused unless the caller opts in explicitly.
+  if (t._status === "unconfirmed" && !args.has("allow-unconfirmed")) { console.error(`task file is marked unconfirmed:\n  - ${(t._problems ?? []).join("\n  - ")}\nPass --allow-unconfirmed to screen it anyway (the test-axis score will be provisional).`); process.exit(3); }
   for (const k of ["repo", "base_commit", "problem_statement", "patch", "test_patch"] as const) if (!t[k]) { console.error(`task file is missing "${k}"`); process.exit(2); }
   const derivedId = `${String(t.repo).replace(/^.*github\.com\//, "").replace(/[^A-Za-z0-9_-]+/g, "__")}-${String(t.base_commit).slice(0, 8)}`;
   return { ...(t as TaskInstance), instance_id: assertSlug("instance_id", t.instance_id ?? derivedId), FAIL_TO_PASS: t.FAIL_TO_PASS ?? [] };
@@ -52,7 +55,7 @@ console.log(`repository ${task.repo} @ ${task.base_commit.slice(0, 10)} (${ws.st
 if (task.FAIL_TO_PASS.length === 0) console.log("note: no FAIL_TO_PASS list given — the probes will treat every test in the test patch as graded");
 
 // Every screening gets its own attempt id, so concurrent screenings of the same instance never share a trajectory file.
-const attempt = `${Date.now().toString(36)}-${process.pid}`;
+const attempt = attemptId();
 const runId = `screen-${task.instance_id}-${attempt}`;
 const p = await runOne(variant, task, { runId, model: args.get("model") ?? "claude-opus-5" });
 const traj = trajectoryPath(runId, task.instance_id);

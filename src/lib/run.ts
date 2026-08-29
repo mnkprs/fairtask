@@ -69,6 +69,28 @@ export function runFingerprint(variant: Variant, model: string, sampleInst: Task
   })).digest("hex").slice(0, 16);
 }
 
+/**
+ * Acquire `<dir>/run.lock` atomically (O_EXCL). A lock held by a live process is respected; a lock left by a dead
+ * process is taken over. Returns a release function that only removes the lock if this process still owns it.
+ */
+export function acquireRunLock(dir: string, pid: number = process.pid): () => void {
+  mkdirSync(dir, { recursive: true });
+  const lock = `${dir}/run.lock`;
+  const tryCreate = () => { try { const fd = openSync(lock, "wx"); writeFileSync(fd, String(pid)); closeSync(fd); return true; } catch { return false; } };
+  if (!tryCreate()) {
+    const holder = Number(readFileSync(lock, "utf8"));
+    let alive = false; try { process.kill(holder, 0); alive = true; } catch { /* stale */ }
+    if (alive) throw new Error(`already being executed by process ${holder}; refusing to start a second runner on the same run id`);
+    unlinkSync(lock);
+    if (!tryCreate()) throw new Error(`could not acquire ${lock}`);
+  }
+  return () => { try { if (Number(readFileSync(lock, "utf8")) === pid) unlinkSync(lock); } catch { /* already gone */ } };
+}
+
+/** Unique per-process, per-call attempt id (time + pid + counter) for outputs that must never collide. */
+let attemptCounter = 0;
+export const attemptId = () => `${Date.now().toString(36)}-${process.pid}-${(attemptCounter++).toString(36)}`;
+
 /** Errors that mean "stop the whole run now" rather than "this instance failed". */
 const FATAL = /session limit|usage limit|rate limit|hit your|credit balance|authentication|not logged in/i;
 class FatalRunError extends Error {}
@@ -177,16 +199,9 @@ export async function runAll(variant: Variant, opts: RunOpts) {
   const predPath = `${dir}/predictions.jsonl`;
   const runJson = `${dir}/run.json`;
   // One process per run directory, acquired atomically (O_EXCL) before anything is read or truncated.
-  const lock = `${dir}/run.lock`;
-  const acquire = () => { try { const fd = openSync(lock, "wx"); writeFileSync(fd, String(process.pid)); closeSync(fd); return true; } catch { return false; } };
-  if (!acquire()) {
-    const pid = Number(readFileSync(lock, "utf8"));
-    let alive = false; try { process.kill(pid, 0); alive = true; } catch { /* stale */ }
-    if (alive) { console.error(`run "${opts.runId}" is already being executed by process ${pid}; refusing to start a second runner on the same run id.`); process.exit(2); }
-    unlinkSync(lock);
-    if (!acquire()) { console.error(`could not acquire ${lock}`); process.exit(2); }
-  }
-  process.on("exit", () => { try { if (Number(readFileSync(lock, "utf8")) === process.pid) unlinkSync(lock); } catch { /* already gone */ } });
+  let release: () => void;
+  try { release = acquireRunLock(dir); } catch (e) { console.error(`run "${opts.runId}": ${(e as Error).message}`); process.exit(2); }
+  process.on("exit", release);
   const fingerprint = runFingerprint(variant, opts.model, opts.instances[0]!, opts.instances);
   if (opts.force) { writeFileSync(predPath, ""); if (existsSync(`${dir}/attempts-errored.jsonl`)) writeFileSync(`${dir}/attempts-errored.jsonl`, ""); }
   else if (existsSync(runJson)) {
