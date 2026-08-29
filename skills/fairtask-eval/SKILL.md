@@ -23,7 +23,7 @@ except `data` and `annotations`, which download pinned public files. None calls 
    |---|---|
    | the evaluation set, the thirty cases, strata, which tasks | `npm run data:eval-set` (needs `data/raw/swebench_test.parquet`; if missing, run `curl -L -o data/raw/swebench_test.parquet https://huggingface.co/datasets/princeton-nlp/SWE-bench/resolve/main/data/test-00000-of-00001.parquet` first and say you did) |
    | score, accuracy, kappa, recall, a run id, compare runs | `npm run score -- <run ids…>` (default: `baseline v3-verify`; add `--detail` for per-instance rows) |
-   | the report, the headline table, baseline versus final | `node src/report.ts --baseline baseline --final v3-verify --final-repeat v5-rerun --runs <all run ids>` — the run ids are the directory names under `results/` |
+   | the report, the headline table, baseline versus final | `node src/report.ts --baseline baseline --final v3-verify --runs <all run ids>` — the run ids are the directory names under `results/`; the default (`v3-verify`) has no repeat run, so no `--final-repeat` (the script refuses a repeat of a different configuration). Prints aligned tables; `--markdown` gives the README's pipe tables |
    | evidence audit, bad evidence, fabricated quotes | `npm run audit -- <run ids…>` (needs cloned workspaces: `npm run data:workspaces` first, ~20 s) |
    | code check, novel identifiers, pre-check | `npm run code-check` (needs workspaces) |
    | provenance, annotations, checksum, data source | `npm run data:annotations -- --check` |
