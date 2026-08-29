@@ -1,0 +1,34 @@
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    name: typecheck · verifier tests · scorer on committed results
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      # The scorer needs only the committed predictions and human labels — no API key, no clones.
+      - run: node src/score.ts baseline baseline-rerun v1-context v2-specialists v3-verify v4-calibrated v5-cheap-probes v5-rerun v6-target-aware v7-sonnet-nocal
+      # Data builders are deterministic; the calibration builder also asserts eval/calibration disjointness.
+      - run: npm run data:calibration
+      - name: eval set is unchanged (fixed seed)
+        run: |
+          curl -sL -o data/raw/swebench_test.parquet "https://huggingface.co/datasets/princeton-nlp/SWE-bench/resolve/main/data/test-00000-of-00001.parquet"
+          cp data/eval/instances.json /tmp/instances.before.json
+          npm run data:eval-set > /dev/null
+          diff <(node -e "console.log(JSON.stringify(require('/tmp/instances.before.json').map(i=>i.instance_id)))") <(node -e "console.log(JSON.stringify(require('./data/eval/instances.json').map(i=>i.instance_id)))")
+      - name: plugin manifest is valid JSON
+        run: node -e "for (const f of ['.claude-plugin/plugin.json','.claude-plugin/marketplace.json','.codex-plugin/plugin.json']) JSON.parse(require('fs').readFileSync(f,'utf8'))"
