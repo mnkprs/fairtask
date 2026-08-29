@@ -66,6 +66,7 @@ Django pull request #11099. Full command reference: [§2c](#2c-command-reference
 | Screen my own tasks from a shell | [§2a · Use it from a shell](#2a-use-it-from-a-shell) |
 | Use it from inside an agent (the agentic interface) | [§2b · Use it from inside your agent](#2b-use-it-from-inside-your-agent) |
 | Look up a command and its flags | [§2c · Command reference](#2c-command-reference) |
+| Follow what each agent did, tool by tool, including retries | [§2d · Agent trajectories](#2d-agent-trajectories) |
 | Reproduce every number from a clean machine | [REPRODUCE.md](REPRODUCE.md) |
 | Understand the problem and who has it | [§1 · Who has this problem](#1-who-has-this-problem-and-what-is-the-bottleneck) |
 | See how the pipeline works | [§2 · What the solution does](#2-what-the-solution-does) |
@@ -265,23 +266,26 @@ Give it any of three things; it does the rest and reports in the conversation.
 | `/fairtask my-task.json` | Same for your own task file (`repo`, `base_commit`, `problem_statement`, `patch`, `test_patch`, `FAIL_TO_PASS`). |
 | `/fairtask astropy/astropy 12544` | A pull request. The skill first runs `scripts/task-from-pr.sh`, which builds the task file from the PR with `gh` (base commit, the linked issue's text, code diff, test diff, added tests). It **fails closed** — exits with reasons — if the PR has no linked issue, no test file, or no graded test it can confirm; the skill reports those reasons and stops unless you explicitly accept a provisional screening. Then it screens the task. |
 
-What comes back, verbatim from the session that produced `examples/psf__requests-2317/`:
+What comes back — the engine's own output for the committed example `examples/psf__requests-2317/` (the skill
+reads it from `verdict.json` and repeats it in the conversation, then says what to do with it):
 
 ```
 USABLE   underspecified=0  false_negative=1  confidence=4/5  (evidence verified)
 
-Issue specification (0): the issue names the exact file and line (requests/sessions.py: method = builtin_str(method)),
-the wrong behaviour (b'GET' becomes the literal "b'GET'" under Python 3, yielding 404), and the desired behaviour …
+Issue specification (0): The issue names the exact file and line (`requests/sessions.py`: `method = builtin_str(method)`), the exact wrong behavior (b'GET' becomes the literal string "b'GET'" under Python 3, yielding 404), and the desired behavior ("if requests handled the method value being a binary string, we wouldn't have any problem"). I confirmed the buggy line exists at requests/sessions.py:428 and that the canonical helper `to_native_string` is already imported in the very same module at line 21 and already used a few lines above at line 136 (`prepared_request.url = to_native_string(url)`), so the conventional fix is directly signposted by existing code. There is essentially no ambiguity about what a successful solution looks like.
 
-Test scope (1): the new test asserts only that requests.request(b'GET', …).ok, so any normalisation strategy passes …
+Test scope (1): The new test `test_encoded_methods` is implementation-agnostic: it only does `r = requests.request(b'GET', httpbin('get')); assert r.ok`. It never inspects the method's type, never references `to_native_string`, and imposes no naming or message constraints, so a fix via `to_native_string`, `method.decode('ascii')`, or an `isinstance(method, bytes)` branch all pass equally. The only residual risk is that the FAIL_TO_PASS list bundles seven pre-existing, network-dependent tests (test_HTTP_302_ALLOW_REDIRECT_GET, test_POSTBIN_GET_POST_FILES, test_basicauth_with_netrc, test_json_param_post_content_type_works, etc.) that hit `HTTPBIN = os.environ.get('HTTPBIN_URL', 'http://httpbin.org/')`. I spot-checked these (e.g. test_requests.py:140-144 calls `requests.get(httpbin('redirect', '1'))` with a plain string method) and they do not touch the patched code path at all, so they are neutral between competing correct solutions rather than biased toward the gold patch — they add environment flakiness risk equal for gold and for any reasonable fix, which keeps this at 1 rather than 2.
 
 Evidence (3):
   [underspecified] repo requests/sessions.py:L21
+     The helper needed for the fix, to_native_string, is already imported in sessions.py at the base commit, making the conventional fix directly discoverable from the issue's pointer to the buggy line.
      › from .utils import to_key_val_list, default_headers, to_native_string
   [false_negative] repo test_requests.py:L140-L142
-     › def test_HTTP_302_ALLOW_REDIRECT_GET(self): r = requests.get(httpbin('redirect', '1')) …
+     The extra FAIL_TO_PASS tests are pre-existing network tests using plain-string methods that cannot depend on the bytes-method fix; they only add environment flakiness, equally for any solution.
+     ›  def test_HTTP_302_ALLOW_REDIRECT_GET(self): r = requests.get(httpbin('redirect', '1')) assert r.status_code == 200
   [false_negative] test_patch test_requests.py
-     › r = requests.request(b'GET', httpbin('get')); assert r.ok
+     The new test asserts only that the request succeeds, imposing no constraint on how bytes methods are normalized.
+     ›  r = requests.request(b'GET', httpbin('get')) assert r.ok
 
 $0.49 · 195s · 8 turns
 ```
@@ -392,6 +396,35 @@ a complete command; rows with the same script differ by one flag.
 | `npm run typecheck` | TypeScript, no emit. |
 | `npm test` | 23 adversarial tests: verifier (fabricated, elided, cross-hunk, removed-line and symlinked quotes), workspace trust (symlinked path, dirty tree, wrong remote, bad commit), run lock and screening ids. |
 | `npm run validate:manifests` | Semantic check of the plugin manifests and both skills' frontmatter. |
+
+## 2d. Agent trajectories
+
+Every run of every agent is recorded as JSONL and rendered to Markdown next to it (`npm run trajectory -- <file>`).
+A rendered trajectory reads top to bottom as: **Agent instructions** (the judge's system prompt with the rubric, the
+task prompt, and the full instructions of each subagent it may dispatch) → **Execution** (every tool call with its
+input, every tool result or error, each probe's report, the judge's own spot-checks) → **Result** (the JSON verdict,
+cost and turns) → **Verification** (what the deterministic verifier found; if it failed, the feedback sent back and
+the corrective turn). The representative ones, one per agent and one per kind of feedback:
+
+| Agent / situation | Trajectory | What to look at |
+|---|---|---|
+| **Baseline** — one prompt, no tools | [`trajectories/baseline/astropy__astropy-12544.md`](trajectories/baseline/astropy__astropy-12544.md) | Instructions and task prompt, then the verdict straight away. It flags the task (humans: flag, `false_negative` 3) but also scores the issue 2 where humans gave 0 — the right decision for half the right reasons; every later configuration keeps the flag and the same over-score on the issue axis. |
+| **Single agent with repository tools** (v1) | [`trajectories/v1-context/astropy__astropy-12544.md`](trajectories/v1-context/astropy__astropy-12544.md) | The same prompt plus `Read`/`Grep`/`Glob`: what it reads, and how reading the code made it *more* lenient (§5, Iteration 1). |
+| **Judge + `spec-probe` + `test-probe`** (v3, the final default) | [`trajectories/v3-verify/astropy__astropy-12544.md`](trajectories/v3-verify/astropy__astropy-12544.md) | Instructions for all three agents (`### Subagent spec-probe`, `### Subagent test-probe`); the judge dispatching both in parallel; each probe's `Read`/`Grep` calls and the file contents that came back; the two probe reports with evidence; the judge re-opening the cited lines itself ("Now spot-checking the strongest claims myself"); the final verdict; `✅ Verification passed`. |
+| **Verifier feedback and a corrective turn** | [`trajectories/v4-calibrated/scikit-learn__scikit-learn-11574.md`](trajectories/v4-calibrated/scikit-learn__scikit-learn-11574.md) · [`trajectories/v5-cheap-probes/sphinx-doc__sphinx-8284.md`](trajectories/v5-cheap-probes/sphinx-doc__sphinx-8284.md) | `⛔ Verification failed (attempt 1)`: the verifier names the evidence item whose quote is not in the test patch, the exact feedback text sent to the judge, the judge's re-check with `Grep`, and the corrected verdict that passes. These are the only two corrective turns in 300 evaluation runs — the announcement that quotes will be checked did the work (§5, Iteration 3). |
+| **A tool refusing the agent** | same `sphinx-doc__sphinx-8284.md` | `❌ error` entries: both probes, then the judge, asked to `Read` paths that do not exist (a mistyped directory, then an absolute `/repo/…` path); the tool answered `File does not exist` with the correct working directory, and each agent corrected its path on the next call. |
+| **The strict-reviewer framing** (v6) | [`trajectories/v6-target-aware/astropy__astropy-12544.md`](trajectories/v6-target-aware/astropy__astropy-12544.md) | The same case under the instructions that name the reference label as a maximum over three annotators. |
+| **A real screening from the skill** | [`examples/psf__requests-2317/trajectory.md`](examples/psf__requests-2317/trajectory.md) · [`examples/django__django-11099/trajectory.md`](examples/django__django-11099/trajectory.md) | Produced by `/fairtask` on a task outside the evaluation set: no human label in the header, the calibration block the v5 configuration adds, the verdict the skill reported in §2b. |
+
+**Human checkpoints.** The pipeline has three, all deliberate: (1) `task-from-pr.sh` fails closed when it cannot
+confirm the issue or the graded tests, and the skill reads the task back for a one-line confirmation before spending
+money; (2) a verdict marked `verified: false` after the corrective turns is refused — `screen` exits non-zero and the
+skill says so, rather than reporting unverified evidence; (3) every FLAG is a recommendation with cited lines, and a
+human adjudicates it. Nothing is dropped from a task set on the agent's word.
+
+All 300 evaluation trajectories (10 runs × 30 cases) are under `trajectories/<run>/`, and every one of them embeds
+the exact instructions its agents ran with, so a prompt change in `src/variants/` or `src/lib/rubric.ts` can be
+matched to the runs that used it.
 
 ---
 

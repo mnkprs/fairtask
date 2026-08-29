@@ -1,6 +1,6 @@
 # Reproduction guide
 
-Everything below was run on macOS 15 (Apple Silicon) with the versions listed; nothing is platform-specific except
+Written for a clean machine: nothing is assumed beyond the requirements in §0. Everything below was run on macOS 15 (Apple Silicon) with the versions listed; nothing is platform-specific except
 that the Claude Code CLI must be installable.
 
 ## 0. Requirements
@@ -59,12 +59,27 @@ npm run data:workspaces      # shallow-clones 30 repos into workspaces/<instance
 
 ```bash
 npm run screen -- --swebench django__django-11099            # any SWE-bench-style instance from Hugging Face
-npm run screen -- --task path/to/task.json                    # your own task; format in README §2b
+npm run screen -- --task path/to/task.json                    # your own task; format in README §2a
 ```
 
 Expect ~3 minutes and ~$1 (list price) per task; output in `screenings/<instance_id>/`.
 
-From inside an agent instead of a shell: `npx skills add mnkprs/fairtask`, then `/fairtask <instance-id | task.json | owner/repo PR#>`.
+What to expect on the terminal (this is the committed run `examples/psf__requests-2317/`; the head lines name the
+task, the variant, the model and the cloned workspace, then the verdict):
+
+```
+fairtask · psf__requests-2317 · v5-cheap-probes · claude-opus-5
+repository psf/requests @ 091991be0d (cloned) → workspaces/psf__requests-2317/repo
+────────────────────────────────────────────────────────────────────────
+USABLE   underspecified=0  false_negative=1  confidence=4/5  (evidence verified)
+…
+$0.49 · 195s · 8 turns
+written: screenings/psf__requests-2317/verdict.json  (trajectory: screenings/psf__requests-2317/trajectory.jsonl; …)
+```
+
+A verdict whose evidence still fails verification after two corrective turns is not written as a result: `screen`
+prints `NO VERDICT` and exits 1. From inside an agent instead of a shell: `npx skills add mnkprs/fairtask`, then
+`/fairtask <instance-id | task.json | owner/repo PR#>` (README §2b).
 
 ## 4. Run the baseline and the solution over the evaluation set
 
@@ -114,7 +129,23 @@ scripts/finalize-report.py v3-verify baseline baseline-rerun v1-context v2-speci
 
 The scorer compares every verdict with the human labels and prints the comparison table used in the README; it also
 writes `results/<run-id>/summary.json`. The primary metric is **decision accuracy**: does the system's
-usable/flag decision match the humans' (usable ⇔ both scores ≤ 1)?
+usable/flag decision match the humans' (usable ⇔ both scores ≤ 1)? The first lines of `npm run score -- baseline v3-verify`
+on the committed results:
+
+```
+                                        baseline     v3-verify
+--------------------------------------------------------------
+instances scored / expected                30/30         30/30
+verdicts failing verification                  0             0
+PRIMARY decision accuracy                    67%           67%
+balanced accuracy                            65%           63%
+Cohen's kappa vs humans                     0.29          0.25
+flag precision / recall                  78%/70%       75%/75%
+```
+
+A reproduction run lands within ±2 cases of these (the baseline repeated at 67%/67%; agent variants at 60–70%
+across eight runs, see README §4). Representative trajectories, including the two runs where the verifier sent
+feedback and the judge corrected its evidence, are listed in README §2d.
 
 ## 6. Expected runtime and cost
 
