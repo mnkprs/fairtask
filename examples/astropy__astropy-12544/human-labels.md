@@ -1,5 +1,7 @@
 # astropy__astropy-12544 — human labels (OpenAI, 2024; max over three annotators)
 
+Source: data/raw/ensembled_annotations_public.csv (provenance in data/raw/SOURCES.md); task: https://github.com/astropy/astropy/pull/12544
+
 | axis | score |
 |---|---|
 | underspecified | 0 |
