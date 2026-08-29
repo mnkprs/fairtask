@@ -15,10 +15,11 @@
     "run": "node src/run.ts",
     "score": "node src/score.ts",
     "trajectory": "node src/trajectory-view.ts",
-    "test": "node --test src/verify.test.ts",
+    "test": "node --test src/*.test.ts",
     "audit": "node src/evidence-audit.ts",
     "code-check": "node src/code-check.ts",
-    "screen": "node src/screen.ts"
+    "screen": "node src/screen.ts",
+    "validate:manifests": "node scripts/validate-manifests.mjs"
   },
   "license": "MIT",
   "dependencies": {

@@ -24,7 +24,8 @@ present. No other credentials are needed; the project never reads your `~/.claud
 git clone https://github.com/mnkprs/fairtask && cd fairtask
 npm ci
 npm run typecheck          # optional sanity check
-npm test                   # adversarial tests for the evidence verifier
+npm test                   # 23 adversarial tests: verifier, workspace trust, run lock / concurrency
+npm run validate:manifests # semantic check of the plugin manifests and the skill
 ```
 
 ## 2. Data

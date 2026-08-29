@@ -442,6 +442,14 @@ to commit SHAs and the dataset to a revision, fetches with `--fail`, requires th
 `calibration.json` to be byte-identical to the committed files, and validates the plugin with Claude Code's own
 inventory command. Re-auditing every run under verifier v4 changed no number.
 
+The review's four "next steps" were then executed as well: adversarial tests now cover symlinked and dirty
+workspaces, wrong remotes, bad commits, a live and a stale run lock, and concurrent screening ids (23 tests across
+three suites, `npm test`); PR ingestion fails closed — `task-from-pr.sh` exits 3 when there is no linked issue, no
+test file, or no FAIL_TO_PASS selector confirmable against the tests the PR adds, and `npm run screen` refuses a
+task marked unconfirmed unless `--allow-unconfirmed` is passed; and CI validates the manifests semantically
+(`npm run validate:manifests`: semver, array shapes, version agreement across manifests and `package.json`, disclosed
+Codex capabilities, skill frontmatter, pinned engine tag) and checks the skill is discoverable from the registry.
+
 **Effect on the reported numbers.** The reported runs used the original verifier in the loop. The stricter
 post-review verifier was then applied *post hoc* to every verdict of every run; all "bad evidence" figures in this
 README are from that stricter audit (it also fixed two false rejections of its own first draft — verbatim patch

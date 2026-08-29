@@ -24,11 +24,12 @@ This skill drives it, and falls back to doing the probes' work yourself when the
 1. **Identify the input** — one of:
    - a SWE-bench-style instance id such as `django__django-11099` (`--swebench <id> [--dataset princeton-nlp/SWE-bench]`);
    - a task JSON with `repo`, `base_commit`, `problem_statement`, `patch`, `test_patch`, `FAIL_TO_PASS` (`--task <file>`);
-   - a pull request: run `scripts/task-from-pr.sh <owner/repo> <number> > task.json` (needs `gh`); it fills every field
-     and lists the test functions the PR *added* as a best-effort FAIL_TO_PASS (modified existing tests are not
-     detected). Read the JSON back to the user for a one-line confirmation of the issue text before screening — the
-     PR body is not always the issue — and surface any `_warning` it carries. If FAIL_TO_PASS is empty or unconfirmed,
-     say that the test-axis score is provisional.
+   - a pull request: run `scripts/task-from-pr.sh <owner/repo> <number> > task.json` (needs `gh`). It fails closed
+     (exit 3) when the PR has no linked issue, no test files, or no FAIL_TO_PASS selector confirmable against the added
+     tests; report the reasons it prints and stop, unless the user explicitly accepts a provisional screening — then
+     re-run with `--lenient` and pass `--allow-unconfirmed` to `npm run screen`, and say in the report that the
+     test-axis score is provisional. Read the issue text back to the user for a one-line confirmation before
+     screening, and surface any `_warning` the JSON carries.
 2. **Locate the engine.** Use `FAIRTASK_HOME` if set, else `~/.fairtask`. If absent, install the release this skill
    was published with — never a moving branch:
    `git clone --branch v0.1.0 --depth 1 https://github.com/mnkprs/fairtask ~/.fairtask && (cd ~/.fairtask && npm ci)`.
