@@ -184,10 +184,10 @@ The same engine is packaged as an **agent skill** (`skills/fairtask/`), installa
 ```bash
 npx skills add mnkprs/fairtask                       # skills.sh: installs the `fairtask` skill into Claude Code / Codex / Cursor / …
 /plugin marketplace add mnkprs/fairtask              # Claude Code plugin marketplace …
-/plugin install fairtask@fairtask                    # … then the plugin (skill + /fairtask command)
+/plugin install fairtask@fairtask                    # … then the plugin (the /fairtask skill)
 ```
 The repository also carries a Codex plugin manifest (`.codex-plugin/`). Packaging follows the conventions of
-[ECC](https://github.com/affaan-m/ECC) — plugin manifest, marketplace file, thin command shim, `metadata.origin` —
+[ECC](https://github.com/affaan-m/ECC) — plugin manifest, marketplace file, `metadata.origin` in the skill —
 so the same skill installs the same way on every harness ECC supports.
 
 Then, in a session: `/fairtask django__django-11099`, `/fairtask task.json`, or `/fairtask astropy/astropy 12544`
