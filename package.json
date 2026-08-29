@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Agentic screening of SWE-bench-style tasks for under-specification and unfair tests, scored against OpenAI's human annotations.",
   "engines": {
-    "node": ">=22.6"
+    "node": ">=22.18"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

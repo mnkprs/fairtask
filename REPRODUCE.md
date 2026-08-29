@@ -7,7 +7,7 @@ that the Claude Code CLI must be installable.
 
 | Component | Version used | Notes |
 |---|---|---|
-| Node.js | 24.18.0 | ≥ 22.6 works (runs `.ts` files directly, no build step) |
+| Node.js | 24.18.0 | ≥ 22.18 works (runs `.ts` files directly, no build step); CI uses 24 |
 | npm | bundled with Node | |
 | git | any recent | used to shallow-clone 30 repositories (~1.2 GB total on disk) |
 | Claude Code CLI | 2.1.250 | `npm install -g @anthropic-ai/claude-code`; the Agent SDK drives it |
@@ -66,8 +66,9 @@ From inside an agent instead of a shell: `npx skills add mnkprs/fairtask`, then 
 ## 4. Run the baseline and the solution over the evaluation set
 
 ```bash
-npm run run -- --variant baseline  --run-id baseline    # one prompt, no tools
-npm run run -- --variant v3-verify --run-id v3-verify   # final solution (default configuration)
+npm run run -- --variant baseline  --run-id baseline-repro    # one prompt, no tools
+npm run run -- --variant v3-verify --run-id v3-verify-repro   # final solution (default configuration)
+npm run score -- baseline baseline-repro v3-verify v3-verify-repro   # your runs next to the committed ones
 ```
 
 The other changelog rows, if you want to reproduce the whole curve (each is one command; the cost option is
@@ -75,15 +76,15 @@ The other changelog rows, if you want to reproduce the whole curve (each is one 
 
 ```bash
 for v in v1-context v2-specialists v4-calibrated v5-cheap-probes v6-target-aware v7-sonnet-nocal; do
-  npm run run -- --variant $v --run-id $v
+  npm run run -- --variant $v --run-id $v-repro
 done
-npm run run -- --variant baseline        --run-id baseline-rerun   # repeat runs used for the noise estimate
-npm run run -- --variant v5-cheap-probes --run-id v5-rerun
 ```
 
-Useful flags: `--only <id,id>` to run a subset, `--concurrency 3` (default), `--force` to discard a previous
-run with the same id (runs are otherwise resumable: finished instances are skipped), `--retry-errors` to re-run
-instances that errored last time, `--model <id>` to try another model.
+The committed run ids (`baseline`, `v3-verify`, …) are already complete, so a run with one of those ids does nothing —
+use a new `--run-id` as above, or `--force` to overwrite. Other flags: `--only <id,id>` to run a subset,
+`--concurrency 3` (default), `--retry-errors` to re-run instances that errored last time (runs are resumable),
+`--model <id>` to try another model. A run id records a fingerprint of its configuration and refuses to be resumed
+with a different one.
 
 **If you run on a Claude subscription rather than an API key:** eight concurrent Opus agent sessions exhausted a
 5-hour usage window twice during development. The runner detects the "session limit" error and stops the whole run

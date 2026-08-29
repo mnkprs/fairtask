@@ -8,7 +8,7 @@
   <a href="https://github.com/mnkprs/fairtask/releases/tag/v0.1.0"><img alt="release" src="https://img.shields.io/github/v/release/mnkprs/fairtask?label=submission"></a>
   <a href="LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-blue"></a>
   <a href="https://skills.sh/mnkprs/fairtask/fairtask"><img alt="skill" src="https://img.shields.io/badge/agent%20skill-%2Ffairtask-0F766E"></a>
-  <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A5%2022.6-339933">
+  <img alt="node" src="https://img.shields.io/badge/node-%E2%89%A5%2022.18-339933">
 </p>
 
 `fairtask` screens candidate software-engineering benchmark tasks — a GitHub issue, the repository at the pre-fix
@@ -34,7 +34,7 @@ labels, not the agent — which is the report's main finding.
 ## Quick start
 
 ```bash
-# Node ≥ 22.6, then `claude login` or export ANTHROPIC_API_KEY=…
+# Node ≥ 22.18 (24 recommended), then `claude login` or export ANTHROPIC_API_KEY=…
 git clone https://github.com/mnkprs/fairtask && cd fairtask && npm ci
 
 # screen any SWE-bench-style task from Hugging Face (~3 min, ~$1 at list price)
@@ -194,7 +194,8 @@ Options: `--variant` (`v3-verify` default; `v5-cheap-probes` for the −40% cost
 for the high-recall one), `--model`, `--out`.
 
 The command prints the decision, both scores with their rationales, and every evidence item with its location, and
-writes `screenings/<instance_id>/verdict.json` plus the full trajectory. A verdict looks like this (abridged, from the
+writes `screenings/<instance_id>/verdict.json` plus the full trajectory. Two complete examples are committed under
+`examples/` (`django__django-11099`, `psf__requests-2317` — the run shown in the video), verdict and trajectory. A verdict looks like this (abridged, from the
 challenging case):
 
 ```

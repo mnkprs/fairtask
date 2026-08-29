@@ -1,0 +1,51 @@
+{
+  "run_id": "screen-django__django-11099",
+  "variant": "v3-verify",
+  "instance_id": "django__django-11099",
+  "verdict": {
+    "underspecified": 0,
+    "underspecified_rationale": "The issue names the exact module (django/contrib/auth/validators.py), the exact two classes (ASCIIUsernameValidator, UnicodeUsernameValidator), the exact defective regex (r'^[\\w.@+-]+$'), the root cause (Python's `$` matches a trailing newline), and a concrete replacement (r'\\A[\\w.@+-]+\\Z'). I confirmed by reading validators.py L8-L25 that the buggy regex appears exactly at L10 and L20 and nowhere else in the repo, so there is no ambiguity about scope. The gold patch is a mechanical two-line change consistent with the issue instruction.",
+    "false_negative": 0,
+    "false_negative_rationale": "The test patch only appends 'trailingnewline\\n' / 'trailingnewline\n' to existing invalid-username lists, which are exercised via a generic `with self.assertRaises(ValidationError)` loop; no regex string, validator name, error message, or exception subclass is pinned. Notably the gold patch uses `^...\\Z` while the issue suggests `\\A...\\Z` \u2014 both pass, proving the tests do not encode the gold implementation choice. No other repo location hardcodes the regex (grep for `[\\w.@+-]` returns only validators.py:10 and :20), so no deconstruct/migration test constrains alternatives. The third FAIL_TO_PASS entry, test_help_text in UserAttributeSimilarityValidatorTest, is harness noise: I read tests/auth_tests/test_validators.py:L178-L182 and it compares a hardcoded password help string from an unrelated validator, deterministic and unaffected by any username-validator change, so it passes for any solution.",
+    "evidence": [
+      {
+        "axis": "underspecified",
+        "claim": "The issue pinpoints the exact file, classes, defective regex and a concrete replacement regex.",
+        "source": "issue",
+        "ref": "issue",
+        "quote": "in order to reject usernames that end with a newline.\nI am not sure how to officially post a patch, but the required change is trivial - using the regex above in the two validators in contrib.auth.validators."
+      },
+      {
+        "axis": "false_negative",
+        "claim": "The buggy regex exists only in the two validator classes named by the issue, so no other test hardcodes it.",
+        "source": "repo",
+        "ref": "django/contrib/auth/validators.py:L9-L10",
+        "quote": "class ASCIIUsernameValidator(validators.RegexValidator):\n    regex = r'^[\\w.@+-]+$'"
+      },
+      {
+        "axis": "false_negative",
+        "claim": "The FAIL_TO_PASS test test_help_text is unrelated to the username validators and passes regardless of the solution.",
+        "source": "repo",
+        "ref": "tests/auth_tests/test_validators.py:L178-L182",
+        "quote": "    def test_help_text(self):\n        self.assertEqual(\n            UserAttributeSimilarityValidator().get_help_text(),\n            \"Your password can't be too similar to your other personal information.\"\n        )"
+      }
+    ],
+    "decision": "usable",
+    "confidence": 5
+  },
+  "verified": true,
+  "cost_usd": 0.71469125,
+  "duration_ms": 141991,
+  "num_turns": 6,
+  "input_tokens": 6,
+  "output_tokens": 4654,
+  "cache_read_tokens": 21725,
+  "retries": 0,
+  "task": {
+    "instance_id": "django__django-11099",
+    "repo": "django/django",
+    "base_commit": "d26b2424437dabeeca94d7900b37d2df4410da0c"
+  },
+  "trajectory": "examples/django__django-11099/trajectory.jsonl",
+  "screened_at": "2026-08-29T00:39:33.063Z"
+}

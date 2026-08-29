@@ -28,7 +28,7 @@ This skill drives it, and falls back to doing the probes' work yourself when the
      and lists the added test functions as a best-effort FAIL_TO_PASS. Read the JSON back to the user for a
      one-line confirmation of the issue text before screening — the PR body is not always the issue.
 2. **Locate the engine.** Use `$FAIRTASK_HOME` if set, else `~/.fairtask`. If absent:
-   `git clone https://github.com/mnkprs/fairtask ~/.fairtask && (cd ~/.fairtask && npm ci)`. Requirements: Node ≥ 22.6,
+   `git clone https://github.com/mnkprs/fairtask ~/.fairtask && (cd ~/.fairtask && npm ci)`. Requirements: Node ≥ 22.18,
    git, and either `ANTHROPIC_API_KEY` or a `claude login`. If any is missing and cannot be installed, go to **Manual mode**.
 3. **Run** from the engine directory: `npm run screen -- <input flags> [--variant v3-verify]`. Expect about three minutes and
    about one US dollar per task at list price (`--variant v5-cheap-probes` ≈ 55 cents). The result is `screenings/<instance_id>/verdict.json`

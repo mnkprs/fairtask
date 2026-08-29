@@ -1,0 +1,51 @@
+{
+  "run_id": "screen-psf__requests-2317",
+  "variant": "v5-cheap-probes",
+  "instance_id": "psf__requests-2317",
+  "verdict": {
+    "underspecified": 0,
+    "underspecified_rationale": "The issue names the exact file and line (`requests/sessions.py`: `method = builtin_str(method)`), the exact wrong behavior (b'GET' becomes the literal string \"b'GET'\" under Python 3, yielding 404), and the desired behavior (\"if requests handled the method value being a binary string, we wouldn't have any problem\"). I confirmed the buggy line exists at requests/sessions.py:428 and that the canonical helper `to_native_string` is already imported in the very same module at line 21 and already used a few lines above at line 136 (`prepared_request.url = to_native_string(url)`), so the conventional fix is directly signposted by existing code. There is essentially no ambiguity about what a successful solution looks like.",
+    "false_negative": 1,
+    "false_negative_rationale": "The new test `test_encoded_methods` is implementation-agnostic: it only does `r = requests.request(b'GET', httpbin('get')); assert r.ok`. It never inspects the method's type, never references `to_native_string`, and imposes no naming or message constraints, so a fix via `to_native_string`, `method.decode('ascii')`, or an `isinstance(method, bytes)` branch all pass equally. The only residual risk is that the FAIL_TO_PASS list bundles seven pre-existing, network-dependent tests (test_HTTP_302_ALLOW_REDIRECT_GET, test_POSTBIN_GET_POST_FILES, test_basicauth_with_netrc, test_json_param_post_content_type_works, etc.) that hit `HTTPBIN = os.environ.get('HTTPBIN_URL', 'http://httpbin.org/')`. I spot-checked these (e.g. test_requests.py:140-144 calls `requests.get(httpbin('redirect', '1'))` with a plain string method) and they do not touch the patched code path at all, so they are neutral between competing correct solutions rather than biased toward the gold patch \u2014 they add environment flakiness risk equal for gold and for any reasonable fix, which keeps this at 1 rather than 2.",
+    "evidence": [
+      {
+        "axis": "underspecified",
+        "claim": "The helper needed for the fix, to_native_string, is already imported in sessions.py at the base commit, making the conventional fix directly discoverable from the issue's pointer to the buggy line.",
+        "source": "repo",
+        "ref": "requests/sessions.py:L21",
+        "quote": "from .utils import to_key_val_list, default_headers, to_native_string"
+      },
+      {
+        "axis": "false_negative",
+        "claim": "The extra FAIL_TO_PASS tests are pre-existing network tests using plain-string methods that cannot depend on the bytes-method fix; they only add environment flakiness, equally for any solution.",
+        "source": "repo",
+        "ref": "test_requests.py:L140-L142",
+        "quote": "    def test_HTTP_302_ALLOW_REDIRECT_GET(self):\n        r = requests.get(httpbin('redirect', '1'))\n        assert r.status_code == 200"
+      },
+      {
+        "axis": "false_negative",
+        "claim": "The new test asserts only that the request succeeds, imposing no constraint on how bytes methods are normalized.",
+        "source": "test_patch",
+        "ref": "test_requests.py",
+        "quote": "        r = requests.request(b'GET', httpbin('get'))\n        assert r.ok"
+      }
+    ],
+    "decision": "usable",
+    "confidence": 4
+  },
+  "verified": true,
+  "cost_usd": 0.48619139999999994,
+  "duration_ms": 195496,
+  "num_turns": 8,
+  "input_tokens": 8,
+  "output_tokens": 6474,
+  "cache_read_tokens": 41356,
+  "retries": 0,
+  "task": {
+    "instance_id": "psf__requests-2317",
+    "repo": "psf/requests",
+    "base_commit": "091991be0da19de9108dbe5e3752917fea3d7fdc"
+  },
+  "trajectory": "examples/psf__requests-2317/trajectory.jsonl",
+  "screened_at": "2026-08-29T01:08:33.365Z"
+}
