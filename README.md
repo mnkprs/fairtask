@@ -22,6 +22,17 @@ spread. What the agent changes is measurable elsewhere: the evidence it cites is
 thirty cases are wrong for *every* system built here, and §6 shows with checkable examples that they trace to the
 labels, not the agent — which is the report's main finding.
 
+
+### Quick start
+
+```bash
+git clone https://github.com/mnkprs/fairtask && cd fairtask && npm ci     # Node ≥ 22.6; then `claude login` or ANTHROPIC_API_KEY
+npm run screen -- --swebench django__django-11099                        # screen any SWE-bench-style task (~3 min, ~$1)
+npm run screen -- --task my-task.json                                    # or your own task (format in §2b)
+npx skills add mnkprs/fairtask                                           # or use it from inside your agent: /fairtask <id | task.json | owner/repo PR#>
+```
+
+
 ---
 
 ## 1. Who has this problem, and what is the bottleneck?
