@@ -19,7 +19,8 @@
     "audit": "node src/evidence-audit.ts",
     "code-check": "node src/code-check.ts",
     "screen": "node src/screen.ts",
-    "validate:manifests": "node scripts/validate-manifests.mjs"
+    "validate:manifests": "node scripts/validate-manifests.mjs",
+    "data:annotations": "node src/data/fetch-annotations.ts"
   },
   "license": "MIT",
   "dependencies": {
