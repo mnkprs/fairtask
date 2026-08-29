@@ -1,6 +1,6 @@
 # fairtask — is this SWE-bench task fair enough to grade an agent on?
 
-*micro1 Agentic Workflows Hackathon, August 2026.*
+*micro1 Agentic Workflows Hackathon, August 2026.* [![ci](https://github.com/mnkprs/fairtask/actions/workflows/ci.yml/badge.svg)](https://github.com/mnkprs/fairtask/actions/workflows/ci.yml) · [skill: `npx skills add mnkprs/fairtask`](https://skills.sh/mnkprs/fairtask/fairtask)
 
 `fairtask` screens candidate software-engineering benchmark tasks — a GitHub issue, the repository at the pre-fix
 commit, and the hidden tests from the fixing PR — for the two defects that make such a task grade solvers unfairly:
