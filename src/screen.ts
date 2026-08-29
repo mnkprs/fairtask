@@ -12,7 +12,8 @@ import type { TaskInstance } from "./lib/types.ts";
 import { VARIANTS } from "./variants/index.ts";
 import { runOne } from "./lib/run.ts";
 import { prepareWorkspace } from "./lib/workspace.ts";
-import { ROOT, trajectoryPath } from "./lib/paths.ts";
+import { ROOT, assertSlug, trajectoryPath } from "./lib/paths.ts";
+import { resolve, sep } from "node:path";
 
 const args = new Map<string, string>();
 const argv = process.argv.slice(2);
@@ -26,21 +27,23 @@ async function fromHuggingFace(instanceId: string, dataset: string): Promise<Tas
   const row = ((await res.json()) as { rows: Array<{ row: Record<string, unknown> }> }).rows[0]?.row;
   if (!row) throw new Error(`instance "${instanceId}" not found in ${dataset} (test split)`);
   const list = (v: unknown) => (Array.isArray(v) ? (v as string[]) : typeof v === "string" ? (JSON.parse(v) as string[]) : []);
-  return { instance_id: String(row.instance_id), repo: String(row.repo), base_commit: String(row.base_commit), version: row.version == null ? undefined : String(row.version), problem_statement: String(row.problem_statement), hints_text: String(row.hints_text ?? ""), patch: String(row.patch), test_patch: String(row.test_patch), FAIL_TO_PASS: list(row.FAIL_TO_PASS), PASS_TO_PASS: list(row.PASS_TO_PASS) };
+  return { instance_id: assertSlug("instance_id", String(row.instance_id)), repo: String(row.repo), base_commit: String(row.base_commit), version: row.version == null ? undefined : String(row.version), problem_statement: String(row.problem_statement), hints_text: String(row.hints_text ?? ""), patch: String(row.patch), test_patch: String(row.test_patch), FAIL_TO_PASS: list(row.FAIL_TO_PASS), PASS_TO_PASS: list(row.PASS_TO_PASS) };
 }
 
 function fromFile(path: string): TaskInstance {
   const t = JSON.parse(readFileSync(path, "utf8")) as Partial<TaskInstance>;
   for (const k of ["repo", "base_commit", "problem_statement", "patch", "test_patch"] as const) if (!t[k]) { console.error(`task file is missing "${k}"`); process.exit(2); }
   const derivedId = `${String(t.repo).replace(/^.*github\.com\//, "").replace(/[^A-Za-z0-9_-]+/g, "__")}-${String(t.base_commit).slice(0, 8)}`;
-  return { ...(t as TaskInstance), instance_id: t.instance_id ?? derivedId, FAIL_TO_PASS: t.FAIL_TO_PASS ?? [] };
+  return { ...(t as TaskInstance), instance_id: assertSlug("instance_id", t.instance_id ?? derivedId), FAIL_TO_PASS: t.FAIL_TO_PASS ?? [] };
 }
 
 const variantName = args.get("variant") ?? "v3-verify";
 const variant = VARIANTS[variantName];
 if (!variant) { console.error(`unknown variant "${variantName}"; one of: ${Object.keys(VARIANTS).join(", ")}`); process.exit(2); }
 const task = args.has("task") ? fromFile(args.get("task")!) : args.has("swebench") ? await fromHuggingFace(args.get("swebench")!, args.get("dataset") ?? "princeton-nlp/SWE-bench") : (usage(), undefined as never);
-const outDir = `${args.get("out") ?? `${ROOT}screenings`}/${task.instance_id}`;
+const outRoot = resolve(args.get("out") ?? `${ROOT}screenings`);
+const outDir = resolve(outRoot, task.instance_id);
+if (!outDir.startsWith(outRoot + sep)) throw new Error("output directory escapes --out");
 mkdirSync(outDir, { recursive: true });
 
 console.log(`fairtask · ${task.instance_id} · ${variantName} · ${args.get("model") ?? "claude-opus-5"}`);

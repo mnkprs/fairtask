@@ -8,6 +8,9 @@ import type { TaskInstance, Evidence, Verdict } from "./types.ts";
  * the reviewer's job, which is why the verdict hands them the exact location.
  */
 
+/** Bump whenever verification semantics change: it is part of every run's fingerprint, so old runs cannot be resumed under new rules. */
+export const VERIFIER_VERSION = "3";
+
 /** Collapse whitespace so quotes can be matched loosely but honestly. Diff markers are handled by the patch parser. */
 export const norm = (s: string) => s.replace(/\s+/g, " ").trim();
 
@@ -29,6 +32,9 @@ export function findQuote(haystack: string, quote: string): { index: number; pro
   if (literal.length >= 8 && haystack.includes(literal)) return { index: haystack.indexOf(literal) };
   const frags = splitElisions(quote);
   if (frags.length === 0) return { index: -1, problem: "quote is empty" };
+  // A quote that uses elision syntax must keep text on both sides of every "...": a lone prefix such as
+  // `long_name = ...` would otherwise "verify" against any value of long_name.
+  if (frags.length < 2) return { index: -1, problem: `quote not found verbatim, and "..." with only one fragment cannot be verified: "${frags[0]!.slice(0, 60)}"` };
   const short = frags.find((f) => f.length < 8);
   if (short !== undefined) return { index: -1, problem: `quote fragment "${short}" is too short to verify` };
   let pos = 0, first = -1;
@@ -42,23 +48,25 @@ export function findQuote(haystack: string, quote: string): { index: number; pro
   return { index: first };
 }
 
-/** Per-file view of a unified diff: the "new side" (context + added lines) and the removed lines, both normalized. */
-export interface PatchFile { path: string; newSide: string; removed: string }
+/** Per-hunk view of a unified diff: the "new side" (context + added lines) and the removed lines of ONE hunk, normalized. */
+export interface PatchHunk { path: string; header: string; newSide: string; removed: string }
 
-export function parsePatch(patch: string): PatchFile[] {
-  const files: PatchFile[] = [];
-  let cur: { path: string; newLines: string[]; removedLines: string[] } | undefined;
+export function parsePatch(patch: string): PatchHunk[] {
+  const hunks: PatchHunk[] = [];
+  let path = "";
+  let cur: { header: string; newLines: string[]; removedLines: string[] } | undefined;
+  const flush = () => { if (cur) hunks.push({ path, header: cur.header, newSide: norm(cur.newLines.join("\n")), removed: norm(cur.removedLines.join("\n")) }); cur = undefined; };
   for (const line of patch.split("\n")) {
     const m = line.match(/^diff --git a\/(\S+) b\/(\S+)/);
-    if (m) { if (cur) files.push({ path: cur.path, newSide: norm(cur.newLines.join("\n")), removed: norm(cur.removedLines.join("\n")) }); cur = { path: m[2]!, newLines: [], removedLines: [] }; continue; }
-    if (!cur) continue;
-    if (/^(index |--- |\+\+\+ |@@ )/.test(line)) continue;
+    if (m) { flush(); path = m[2]!; continue; }
+    if (line.startsWith("@@")) { flush(); cur = { header: line, newLines: [], removedLines: [] }; continue; }
+    if (!cur || /^(index |--- |\+\+\+ )/.test(line)) continue;
     if (line.startsWith("+")) cur.newLines.push(line.slice(1));
     else if (line.startsWith("-")) cur.removedLines.push(line.slice(1));
     else cur.newLines.push(line.startsWith(" ") ? line.slice(1) : line);
   }
-  if (cur) files.push({ path: cur.path, newSide: norm(cur.newLines.join("\n")), removed: norm(cur.removedLines.join("\n")) });
-  return files;
+  flush();
+  return hunks;
 }
 
 function checkRepoQuote(e: Evidence, workspace: string): string | null {
@@ -86,28 +94,33 @@ function checkRepoQuote(e: Evidence, workspace: string): string | null {
  * now require.
  */
 function checkPatchQuote(e: Evidence, patch: string, label: string): string | null {
-  const files = parsePatch(patch);
+  const hunks = parsePatch(patch);
   const ref = e.ref.replace(/^[ab]\//, "").replace(/:L?\d+(-L?\d+)?$/, "");
-  const file = files.find((f) => f.path === ref || f.path.endsWith(`/${ref}`) || ref.endsWith(`/${f.path}`));
-  if (!file) return `evidence ref "${e.ref}" is not a file touched by ${label} (touched: ${files.map((f) => f.path).join(", ") || "none"})`;
+  const fileHunks = hunks.filter((h) => h.path === ref || h.path.endsWith(`/${ref}`) || ref.endsWith(`/${h.path}`));
+  if (fileHunks.length === 0) return `evidence ref "${e.ref}" is not a file touched by ${label} (touched: ${[...new Set(hunks.map((h) => h.path))].join(", ") || "none"})`;
   // Route each quoted line by its diff marker: "-" lines must exist among the removed lines, everything else on the
-  // new side (context + added). A quote made only of removed lines is rejected — deleted code is not evidence of
-  // what the tests now require — but an honest before/after quote ("-old" + "+new") verifies on both sides.
+  // new side (context + added). Both sides must come from the SAME hunk — a quote stitched together from distant
+  // hunks is not a quote. A quote made only of removed lines is rejected: deleted code is not evidence of what the
+  // tests now require; an honest before/after quote ("-old" + "+new") verifies on both sides.
   const lines = e.quote.split("\n");
   const minus = lines.filter((l) => /^-(?!--)/.test(l)).map((l) => l.slice(1)).join("\n");
   const plus = lines.filter((l) => !/^-(?!--)/.test(l)).map((l) => l.replace(/^[+ ]/, "")).join("\n");
+  const file = fileHunks[0]!.path;
   if (norm(plus).length === 0) {
-    return findQuote(file.removed, minus).index >= 0
-      ? `evidence quote in ${label} "${file.path}" matches only REMOVED lines (deleted code is not evidence of the new behaviour)`
-      : `evidence quote not found in ${label} "${file.path}"`;
+    return fileHunks.some((h) => findQuote(h.removed, minus).index >= 0)
+      ? `evidence quote in ${label} "${file}" matches only REMOVED lines (deleted code is not evidence of the new behaviour)`
+      : `evidence quote not found in ${label} "${file}"`;
   }
-  const foundNew = findQuote(file.newSide, plus);
-  if (foundNew.index < 0) {
-    if (findQuote(file.removed, plus).index >= 0) return `evidence quote in ${label} "${file.path}" matches only REMOVED lines (deleted code is not evidence of the new behaviour)`;
-    return `evidence quote not found in ${label} "${file.path}" (${foundNew.problem})`;
+  let plusProblem = "", minusProblem = "";
+  for (const h of fileHunks) {
+    const foundNew = findQuote(h.newSide, plus);
+    if (foundNew.index < 0) { plusProblem ||= foundNew.problem ?? "not found"; continue; }
+    if (norm(minus).length >= 8 && findQuote(h.removed, minus).index < 0) { minusProblem = `the "-" lines of the evidence quote are not among the lines the same hunk removes`; continue; }
+    return null;
   }
-  if (norm(minus).length >= 8) { const foundOld = findQuote(file.removed, minus); if (foundOld.index < 0) return `the "-" lines of the evidence quote are not among the lines ${label} removes in "${file.path}" (${foundOld.problem})`; }
-  return null;
+  if (minusProblem) return `evidence quote not found within a single hunk of ${label} "${file}": ${minusProblem}`;
+  if (fileHunks.some((h) => findQuote(h.removed, plus).index >= 0)) return `evidence quote in ${label} "${file}" matches only REMOVED lines (deleted code is not evidence of the new behaviour)`;
+  return `evidence quote not found within a single hunk of ${label} "${file}" (${plusProblem})`;
 }
 
 function checkTextQuote(e: Evidence, haystack: string, label: string): string | null {

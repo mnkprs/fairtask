@@ -16,8 +16,23 @@ const idents = (text: string) => new Set([...text.matchAll(/[A-Za-z_][A-Za-z0-9_
 const added = (patch: string) => patch.split("\n").filter((l) => l.startsWith("+") && !l.startsWith("+++")).map((l) => l.slice(1)).join("\n");
 const inRepo = (word: string, repo: string) => { try { execFileSync("grep", ["-rIlqw", "--exclude-dir=.git", word, repo], { stdio: "ignore" }); return true; } catch { return false; } };
 
+/** Added test-patch lines that belong to a graded (FAIL_TO_PASS) test function; falls back to all added lines when no list is given. */
+export function gradedAddedLines(inst: { test_patch: string; FAIL_TO_PASS: string[] }): string {
+  const lines = added(inst.test_patch).split("\n").filter((l) => !/^\s*(#|import |from )/.test(l));
+  const graded = new Set(inst.FAIL_TO_PASS.map((t) => t.split("::").pop()!.replace(/\[.*$/, "")));
+  if (graded.size === 0) return lines.join("\n");
+  const kept: string[] = []; let inGraded = false;
+  for (const l of lines) {
+    const def = l.match(/^\s*(?:async\s+)?def\s+([A-Za-z_][A-Za-z0-9_]*)/);
+    if (def) inGraded = graded.has(def[1]!);
+    else if (/^\S/.test(l) && !l.startsWith("@")) inGraded = false; // top-level statement ends the function
+    if (inGraded) kept.push(l);
+  }
+  return kept.join("\n");
+}
+
 export function novelIdentifiers(inst: EvalInstance): string[] {
-  const fromTests = idents(added(inst.test_patch));
+  const fromTests = idents(gradedAddedLines(inst));
   const fromIssue = idents(inst.problem_statement);
   const fromGold = idents(added(inst.patch));
   const repo = workspaceDir(inst.instance_id);
@@ -27,7 +42,7 @@ export function novelIdentifiers(inst: EvalInstance): string[] {
 const instances = JSON.parse(readFileSync(`${ROOT}data/eval/instances.json`, "utf8")) as EvalInstance[];
 requireWorkspaces(instances.map((i) => i.instance_id));
 const rows = instances.map((i) => ({ id: i.instance_id, fn: i.human.false_negative, novel: novelIdentifiers(i) })).sort((a, b) => b.novel.length - a.novel.length);
-console.log(`${"instance".padEnd(38)}fn  novel identifiers required by tests, introduced by the gold patch, absent from issue and repo`);
+console.log(`${"instance".padEnd(38)}fn  identifiers used by GRADED (FAIL_TO_PASS) tests, introduced by the gold patch, absent from issue and repo`);
 for (const r of rows) console.log(`${r.id.padEnd(38)}${r.fn}   ${r.novel.length ? r.novel.slice(0, 6).join(", ") + (r.novel.length > 6 ? ` … (+${r.novel.length - 6})` : "") : "—"}`);
 const hi = rows.filter((r) => r.fn >= 2), lo = rows.filter((r) => r.fn <= 1);
 const tpr = hi.filter((r) => r.novel.length >= 1).length / hi.length, tnr = lo.filter((r) => r.novel.length === 0).length / lo.length;

@@ -2,7 +2,8 @@ import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { TaskInstance } from "./types.ts";
-import { workspaceDir } from "./paths.ts";
+import { ROOT, workspaceDir } from "./paths.ts";
+import { resolve, sep } from "node:path";
 
 const exec = promisify(execFile);
 async function git(cwd: string, ...a: string[]) {
@@ -24,6 +25,8 @@ export function repoUrl(repo: string): string {
  */
 export async function prepareWorkspace(inst: TaskInstance): Promise<{ dir: string; status: "cached" | "cloned" }> {
   const dir = workspaceDir(inst.instance_id);
+  if (!resolve(dir).startsWith(resolve(`${ROOT}workspaces`) + sep)) throw new Error("workspace path escapes the workspaces root");
+  if (!/^[0-9a-f]{7,40}$/i.test(inst.base_commit)) throw new Error(`base_commit "${inst.base_commit}" is not a commit hash`);
   if (existsSync(`${dir}/.git`)) {
     try { if ((await git(dir, "rev-parse", "HEAD")) === inst.base_commit) return { dir, status: "cached" }; } catch { /* re-clone */ }
     rmSync(dir, { recursive: true, force: true });

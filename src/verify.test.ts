@@ -15,6 +15,10 @@ const patch = `diff --git a/pkg/mod.py b/pkg/mod.py
 -    assert old_behaviour(path) == 1
 +    assert new_behaviour(path, mask_invalid=False) == 2
      return path
+@@ -90,3 +90,4 @@ def unrelated():
+     x = compute_far_away_value()
++    assert far_away_assertion(x) is True
+     return x
 `;
 const ws = mkdtempSync(join(tmpdir(), "tp-"));
 mkdirSync(join(ws, "pkg"), { recursive: true });
@@ -62,10 +66,21 @@ test("a fabricated repo quote and a wrong line range are rejected", () => {
   const p2 = verifyVerdict(base([ev({ source: "repo", ref: "pkg/mod.py:L300-L310", quote: "def read(path, mask=True):" })]), inst, ws);
   assert.match(p2.join("\n"), /not near lines/);
 });
-test("parsePatch separates new side from removed lines per file", () => {
-  const f = parsePatch(patch);
-  assert.equal(f.length, 1); assert.equal(f[0]!.path, "pkg/mod.py");
-  assert.ok(f[0]!.newSide.includes("mask_invalid=False")); assert.ok(!f[0]!.newSide.includes("old_behaviour")); assert.ok(f[0]!.removed.includes("old_behaviour"));
+test("parsePatch keeps hunks separate and separates new side from removed lines", () => {
+  const h = parsePatch(patch);
+  assert.equal(h.length, 2); assert.equal(h[0]!.path, "pkg/mod.py");
+  assert.ok(h[0]!.newSide.includes("mask_invalid=False")); assert.ok(!h[0]!.newSide.includes("old_behaviour")); assert.ok(h[0]!.removed.includes("old_behaviour"));
+  assert.ok(h[1]!.newSide.includes("far_away_assertion"));
+});
+test("a quote stitched together from two distant hunks is rejected", () => {
+  const p = verifyVerdict(base([ev({ quote: "+    assert new_behaviour(path, mask_invalid=False) == 2\n+    assert far_away_assertion(x) is True" })]), inst, ws);
+  assert.match(p.join("\n"), /not found within a single hunk/);
+  assert.deepEqual(verifyVerdict(base([ev({ quote: "+    assert far_away_assertion(x) is True\n     return x" })]), inst, ws), []);
+});
+test("a trailing '...' cannot turn a long prefix into a verified quote", () => {
+  assert.ok(findQuote(norm("long_value_name = 5"), "long_value_name = ...").index < 0);
+  assert.ok(findQuote(norm("long_value_name = ..."), "long_value_name = ...").index >= 0);
+  assert.ok(findQuote(norm("alpha beta gamma delta epsilon zeta eta theta"), "alpha beta gamma ... eta theta").index >= 0);
 });
 test("findQuote falls back to the literal quote", () => {
   assert.equal(findQuote(norm("x = f(a, ...)"), "f(a, ...)").index, 4);

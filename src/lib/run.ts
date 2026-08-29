@@ -1,12 +1,14 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { isAbsolute, resolve, sep } from "node:path";
+import { dirname, isAbsolute, resolve, sep } from "node:path";
 import { query, type HookCallback, type Options, type SDKMessage, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { EvalInstance, Prediction, TaskInstance, Verdict } from "./types.ts";
 import type { Variant, RunContext } from "./variant.ts";
 import { extractVerdict, parseVerdict } from "./verdict.ts";
 import { TrajectoryWriter } from "./trajectory.ts";
 import { resultsDir, trajectoryPath, workspaceDir } from "./paths.ts";
+import { VERIFIER_VERSION } from "./verify.ts";
+import { VERDICT_JSON_SCHEMA } from "./verdict.ts";
 
 export interface RunOpts {
   runId: string;
@@ -24,26 +26,38 @@ export interface RunOpts {
  * evaluation labels, other instances, results or trajectories.
  */
 export function workspaceGuard(workspace: string): HookCallback {
-  const root = resolve(workspace);
+  const root = realpathSync(resolve(workspace));
+  /** Canonical path of the deepest existing ancestor, so symlinks inside the repository cannot point outside it. */
+  const canonical = (p: string) => { let cur = p; while (!existsSync(cur)) { const up = dirname(cur); if (up === cur) break; cur = up; } return realpathSync(cur) + p.slice(cur.length); };
+  const inside = (p: string) => { const abs = canonical(isAbsolute(p) ? resolve(p) : resolve(root, p)); return abs === root || abs.startsWith(root + sep); };
+  const deny = (reason: string) => ({ hookSpecificOutput: { hookEventName: "PreToolUse" as const, permissionDecision: "deny" as const, permissionDecisionReason: reason } });
   return async (input) => {
     if (input.hook_event_name !== "PreToolUse") return {};
     const ti = (input.tool_input ?? {}) as Record<string, unknown>;
-    const candidates = [ti.file_path, ti.path, ti.notebook_path].filter((x): x is string => typeof x === "string" && x.length > 0);
-    for (const p of candidates) {
-      const abs = isAbsolute(p) ? resolve(p) : resolve(root, p);
-      if (abs !== root && !abs.startsWith(root + sep)) {
-        return { hookSpecificOutput: { hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: `Path "${p}" is outside the repository under review. Only files under ${root} may be read.` } };
-      }
+    for (const key of ["file_path", "path", "notebook_path", "cwd", "directory"]) {
+      const p = ti[key];
+      if (typeof p === "string" && p.length > 0 && !inside(p)) return deny(`Path "${p}" is outside the repository under review. Only files under ${root} may be read.`);
     }
+    // Glob's `pattern` is itself a path: absolute or parent-traversing patterns escape the workspace.
+    const pattern = ti.pattern;
+    if (input.tool_name === "Glob" && typeof pattern === "string" && (isAbsolute(pattern) || pattern.startsWith("~") || /(^|[\/])\.\.([\/]|$)/.test(pattern))) return deny(`Glob pattern "${pattern}" must be relative to the repository and must not traverse upwards.`);
     return {};
   };
 }
 
-/** Stable fingerprint of what a run is: variant, model and the exact instructions, so resumes cannot mix systems. */
+/** Bump when runner semantics change in a way that makes earlier predictions incomparable. */
+export const PIPELINE_VERSION = "2";
+
+/** Stable fingerprint of what a run is: pipeline + verifier version, variant, model, the exact prompts, tools, schema and limits — so resumes cannot mix systems. */
 export function runFingerprint(variant: Variant, model: string, sampleInst: TaskInstance): string {
   const built = variant.build(sampleInst, { model, workspace: "/workspace" });
   const agents = Object.fromEntries(Object.entries(built.options.agents ?? {}).map(([k, a]) => [k, { prompt: a.prompt, tools: a.tools, model: a.model }]));
-  return createHash("sha256").update(JSON.stringify({ variant: variant.name, model, systemPrompt: built.options.systemPrompt, tools: built.options.tools, agents, maxRetries: variant.maxRetries ?? 0 })).digest("hex").slice(0, 16);
+  return createHash("sha256").update(JSON.stringify({
+    pipeline: PIPELINE_VERSION, verifier: VERIFIER_VERSION, variant: variant.name, model,
+    prompt: built.prompt, systemPrompt: built.options.systemPrompt, tools: built.options.tools, allowedTools: built.options.allowedTools,
+    hooks: Object.keys(built.options.hooks ?? {}), agents, outputSchema: built.options.outputFormat ?? VERDICT_JSON_SCHEMA,
+    maxTurns: built.options.maxTurns, maxBudgetUsd: built.options.maxBudgetUsd, maxRetries: variant.maxRetries ?? 0, hasValidator: Boolean(variant.validate),
+  })).digest("hex").slice(0, 16);
 }
 
 /** Errors that mean "stop the whole run now" rather than "this instance failed". */
@@ -56,13 +70,20 @@ function loadDone(dir: string, retryErrors: boolean): Set<string> {
   const raw = readFileSync(path, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l) as Prediction);
   // Exactly one prediction per instance: if a file ever holds duplicates (e.g. two processes appended), keep the last.
   const byId = new Map<string, Prediction>();
-  for (const p of raw) byId.set(p.instance_id, p);
+  const ledger = (p: Prediction, why: string) => appendFileSync(`${dir}/attempts-errored.jsonl`, `${JSON.stringify({ ...p, superseded_reason: why, superseded_at: new Date().toISOString() })}\n`);
+  // Exactly one prediction per instance. Any superseded row (duplicate from a concurrent append) goes to the ledger
+  // before it is dropped, so its cost and existence survive.
+  for (const p of raw) { const prev = byId.get(p.instance_id); if (prev) ledger(prev, "duplicate row superseded by a later one"); byId.set(p.instance_id, p); }
   let preds = [...byId.values()];
-  if (byId.size < raw.length) console.warn(`predictions.jsonl had ${raw.length - byId.size} duplicate instance row(s); keeping the last of each`);
+  if (byId.size < raw.length) console.warn(`predictions.jsonl had ${raw.length - byId.size} duplicate instance row(s); superseded rows moved to attempts-errored.jsonl`);
   if (retryErrors) {
     const dropped = preds.filter((p) => !p.verdict);
-    // Errored attempts go to an append-only ledger so their cost stays in the totals and the audit trail survives.
-    for (const p of dropped) appendFileSync(`${dir}/attempts-errored.jsonl`, `${JSON.stringify({ ...p, retried_at: new Date().toISOString() })}\n`);
+    for (const p of dropped) {
+      ledger(p, "errored attempt retried");
+      // keep the failed attempt's trajectory under an attempt suffix instead of overwriting it
+      const t = trajectoryPath(p.run_id, p.instance_id);
+      if (existsSync(t)) { let n = 1; while (existsSync(t.replace(/\.jsonl$/, `.attempt-${n}.jsonl`))) n++; renameSync(t, t.replace(/\.jsonl$/, `.attempt-${n}.jsonl`)); }
+    }
     preds = preds.filter((p) => p.verdict);
     if (dropped.length) console.log(`moved ${dropped.length} errored prediction(s) to attempts-errored.jsonl for re-run`);
   }
@@ -155,6 +176,15 @@ export async function runAll(variant: Variant, opts: RunOpts) {
       process.exit(2);
     }
   }
+  // One process per run directory: a second concurrent runner would pay twice for the same instances.
+  const lock = `${dir}/run.lock`;
+  if (existsSync(lock)) {
+    const pid = Number(readFileSync(lock, "utf8"));
+    let alive = false; try { process.kill(pid, 0); alive = true; } catch { /* stale */ }
+    if (alive) { console.error(`run "${opts.runId}" is already being executed by process ${pid}; refusing to start a second runner on the same run id.`); process.exit(2); }
+  }
+  writeFileSync(lock, String(process.pid));
+  process.on("exit", () => { try { unlinkSync(lock); } catch { /* already gone */ } });
   const done = loadDone(dir, opts.retryErrors);
   writeFileSync(runJson, JSON.stringify({ run_id: opts.runId, variant: variant.name, description: variant.description, model: opts.model, fingerprint, started_at: new Date().toISOString(), n_instances: opts.instances.length }, null, 2));
   const queue = opts.instances.filter((i) => !done.has(i.instance_id));

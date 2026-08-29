@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import type { EvalInstance, Prediction } from "./types.ts";
 import { ROOT, resultsDir, workspaceDir } from "./paths.ts";
 import { verifyVerdict } from "./verify.ts";
@@ -9,10 +10,25 @@ let instances: Map<string, EvalInstance> | undefined;
 const byId = () => (instances ??= new Map((JSON.parse(readFileSync(`${ROOT}data/eval/instances.json`, "utf8")) as EvalInstance[]).map((i) => [i.instance_id, i])));
 
 /** Run the deterministic verifier over every verdict of a run (post hoc) and count what does not check out. */
-/** The audit reads files at the base commit, so every workspace must exist — otherwise the numbers would be wrong, not missing. */
+/**
+ * The audit certifies that quotes exist at the base commit, so every workspace must exist, be checked out at exactly
+ * that commit, and be unmodified. Anything else fails closed rather than producing a wrong number.
+ */
 export function requireWorkspaces(ids: Iterable<string>): void {
-  const missing = [...ids].filter((id) => !existsSync(`${workspaceDir(id)}/.git`));
-  if (missing.length) throw new Error(`${missing.length} workspace(s) are not cloned (e.g. ${missing[0]}). Run \`npm run data:workspaces\` first — repo-sourced evidence cannot be checked without the repository at the base commit.`);
+  const problems: string[] = [];
+  for (const id of ids) {
+    const inst = byId().get(id);
+    const dir = workspaceDir(id);
+    if (!inst) { problems.push(`${id}: not in the evaluation set`); continue; }
+    if (!existsSync(`${dir}/.git`)) { problems.push(`${id}: not cloned`); continue; }
+    const git = (...a: string[]) => execFileSync("git", a, { cwd: dir, encoding: "utf8" }).trim();
+    try {
+      const head = git("rev-parse", "HEAD");
+      if (head !== inst.base_commit) { problems.push(`${id}: HEAD ${head.slice(0, 10)} is not base_commit ${inst.base_commit.slice(0, 10)}`); continue; }
+      if (git("status", "--porcelain", "--untracked-files=all") !== "") problems.push(`${id}: working tree has modified or untracked files`);
+    } catch (e) { problems.push(`${id}: ${(e as Error).message.split("\n")[0]}`); }
+  }
+  if (problems.length) throw new Error(`${problems.length} workspace(s) cannot be used for verification:\n  ${problems.slice(0, 5).join("\n  ")}${problems.length > 5 ? "\n  …" : ""}\nRun \`npm run data:workspaces\` to (re)clone them at the base commit.`);
 }
 
 export function auditRun(runId: string): Audit {

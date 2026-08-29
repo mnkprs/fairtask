@@ -132,7 +132,7 @@ line("PRIMARY decision accuracy", (s) => pct(s.decision_accuracy));
 line("balanced accuracy", (s) => pct(s.balanced_accuracy));
 line("Cohen's kappa vs humans", (s) => s.kappa.toFixed(2));
 line("flag precision / recall", (s) => `${pct(s.flag_precision)}/${pct(s.flag_recall)}`);
-line("TPR / TNR (flag=20, usable=10)", (s) => `${pct(s.tpr)}/${pct(s.tnr)}`);
+line("TPR / TNR (scored only)", (s) => `${pct(s.tpr)} (${Math.round(s.tpr * s.n_flag)}/${s.n_flag}) / ${pct(s.tnr)} (${Math.round(s.tnr * s.n_usable)}/${s.n_usable})`);
 line("missed problems (human flag)", (s) => String(s.missed_problems));
 line("false alarms (human usable)", (s) => String(s.false_alarms));
 line("both axes flagged correctly", (s) => pct(s.both_axes_correct));
