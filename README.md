@@ -425,6 +425,23 @@ clean tree; (6) the code-check only looks at added lines inside FAIL_TO_PASS tes
 label-free (screening) trajectories. Re-auditing every run under the stricter verifier moved no number by more than
 one evidence item (baseline 8% / 11%, default pipeline 0%).
 
+**Third adversarial review (skill, packaging, CI, examples, and the fixes above).** Eight findings, all valid, all
+addressed: (1) a workspace is now trusted only if no path component is a symlink, `HEAD` is the base commit, the tree
+is clean and the remote matches; clones land in a temporary directory and are swapped in atomically; repository URLs
+carrying credentials are refused; (2) repository evidence is resolved with `realpath` so a tracked symlink cannot
+"verify" a quote from outside the repository, patch refs must be an exact touched path (or a unique file name), and
+every removed line of a before/after quote is checked, however short (`VERIFIER_VERSION` 4); (3) the run lock is
+acquired atomically (`O_EXCL`) before any file is truncated and released only by its owner; predictions are rewritten
+through a temporary file; (4) the run fingerprint now digests the full ordered input set and the calibration file;
+(5) single-task screenings get a per-attempt id and publish verdict and trajectory atomically; (6) the PR-to-task
+script passes bulk data through files rather than argv, takes the file list from GitHub's metadata, resolves a linked
+issue in whichever repository it lives, and labels its FAIL_TO_PASS as best effort (it cannot see modified existing
+tests); (7) the skill clones the pinned release tag rather than the default branch, checks an existing install is at
+that tag, and the Codex manifest discloses write/network/execute; (8) CI runs with `contents: read`, pins both actions
+to commit SHAs and the dataset to a revision, fetches with `--fail`, requires the rebuilt `instances.json` and
+`calibration.json` to be byte-identical to the committed files, and validates the plugin with Claude Code's own
+inventory command. Re-auditing every run under verifier v4 changed no number.
+
 **Effect on the reported numbers.** The reported runs used the original verifier in the loop. The stricter
 post-review verifier was then applied *post hoc* to every verdict of every run; all "bad evidence" figures in this
 README are from that stricter audit (it also fixed two false rejections of its own first draft — verbatim patch

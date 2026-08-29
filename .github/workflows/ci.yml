@@ -3,6 +3,8 @@ on:
   push:
     branches: [main]
   pull_request:
+permissions:
+  contents: read
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -12,8 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
           cache: npm
@@ -22,13 +24,15 @@ jobs:
       - run: npm test
       # The scorer needs only the committed predictions and human labels — no API key, no clones.
       - run: node src/score.ts baseline baseline-rerun v1-context v2-specialists v3-verify v4-calibrated v5-cheap-probes v5-rerun v6-target-aware v7-sonnet-nocal
-      # Data builders are deterministic; the calibration builder also asserts eval/calibration disjointness.
-      - run: npm run data:calibration
-      - name: eval set is unchanged (fixed seed)
+      - name: committed data artifacts are exactly reproducible
+        # The dataset is fetched at a pinned revision; both builders are re-run and the WHOLE artifacts must be
+        # byte-identical to what is committed (not just the sampled ids).
         run: |
-          curl -sL -o data/raw/swebench_test.parquet "https://huggingface.co/datasets/princeton-nlp/SWE-bench/resolve/main/data/test-00000-of-00001.parquet"
-          cp data/eval/instances.json /tmp/instances.before.json
+          curl --fail -sL -o data/raw/swebench_test.parquet "https://huggingface.co/datasets/princeton-nlp/SWE-bench/resolve/e48e2bd1e9fecd5bbd641e9414ac59da9f2e69f6/data/test-00000-of-00001.parquet"
           npm run data:eval-set > /dev/null
-          diff <(node -e "console.log(JSON.stringify(require('/tmp/instances.before.json').map(i=>i.instance_id)))") <(node -e "console.log(JSON.stringify(require('./data/eval/instances.json').map(i=>i.instance_id)))")
-      - name: plugin manifest is valid JSON
-        run: node -e "for (const f of ['.claude-plugin/plugin.json','.claude-plugin/marketplace.json','.codex-plugin/plugin.json']) JSON.parse(require('fs').readFileSync(f,'utf8'))"
+          npm run data:calibration > /dev/null
+          git diff --exit-code -- data/eval/instances.json data/eval/calibration.json
+      - name: plugin manifests are valid and describe one skill
+        run: |
+          node -e "for (const f of ['.claude-plugin/plugin.json','.claude-plugin/marketplace.json','.codex-plugin/plugin.json']) { const j = JSON.parse(require('fs').readFileSync(f,'utf8')); if (!j.version && !j.plugins) throw new Error(f + ': version missing') }"
+          npx --yes @anthropic-ai/claude-code@2.1.250 --plugin-dir . plugin details fairtask | grep -E "Skills \(1\)"

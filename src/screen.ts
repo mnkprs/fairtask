@@ -7,7 +7,7 @@
  *
  * Output: screenings/<instance_id>/verdict.json (+ the full trajectory next to it) and a summary on stdout.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import type { TaskInstance } from "./lib/types.ts";
 import { VARIANTS } from "./variants/index.ts";
 import { runOne } from "./lib/run.ts";
@@ -51,12 +51,16 @@ const ws = await prepareWorkspace(task);
 console.log(`repository ${task.repo} @ ${task.base_commit.slice(0, 10)} (${ws.status}) → ${ws.dir}`);
 if (task.FAIL_TO_PASS.length === 0) console.log("note: no FAIL_TO_PASS list given — the probes will treat every test in the test patch as graded");
 
-const runId = `screen-${task.instance_id}`;
+// Every screening gets its own attempt id, so concurrent screenings of the same instance never share a trajectory file.
+const attempt = `${Date.now().toString(36)}-${process.pid}`;
+const runId = `screen-${task.instance_id}-${attempt}`;
 const p = await runOne(variant, task, { runId, model: args.get("model") ?? "claude-opus-5" });
 const traj = trajectoryPath(runId, task.instance_id);
-const record = { ...p, task: { instance_id: task.instance_id, repo: task.repo, base_commit: task.base_commit }, trajectory: traj, screened_at: new Date().toISOString() };
-writeFileSync(`${outDir}/verdict.json`, JSON.stringify(record, null, 2));
-if (existsSync(traj)) writeFileSync(`${outDir}/trajectory.jsonl`, readFileSync(traj));
+const record = { ...p, task: { instance_id: task.instance_id, repo: task.repo, base_commit: task.base_commit }, attempt, trajectory: traj, screened_at: new Date().toISOString() };
+// Verdict and trajectory are published together via temporary files + rename, so a reader never sees a torn pair.
+const atomicWrite = (path: string, data: string | Buffer) => { const tmp = `${path}.${attempt}.tmp`; writeFileSync(tmp, data); renameSync(tmp, path); };
+atomicWrite(`${outDir}/verdict.json`, JSON.stringify(record, null, 2));
+if (existsSync(traj)) atomicWrite(`${outDir}/trajectory.jsonl`, readFileSync(traj));
 
 const v = p.verdict;
 console.log("\n" + "─".repeat(72));

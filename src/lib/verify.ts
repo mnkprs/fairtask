@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { resolve, sep } from "node:path";
 import type { TaskInstance, Evidence, Verdict } from "./types.ts";
 
@@ -9,7 +9,7 @@ import type { TaskInstance, Evidence, Verdict } from "./types.ts";
  */
 
 /** Bump whenever verification semantics change: it is part of every run's fingerprint, so old runs cannot be resumed under new rules. */
-export const VERIFIER_VERSION = "3";
+export const VERIFIER_VERSION = "4";
 
 /** Collapse whitespace so quotes can be matched loosely but honestly. Diff markers are handled by the patch parser. */
 export const norm = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -49,13 +49,13 @@ export function findQuote(haystack: string, quote: string): { index: number; pro
 }
 
 /** Per-hunk view of a unified diff: the "new side" (context + added lines) and the removed lines of ONE hunk, normalized. */
-export interface PatchHunk { path: string; header: string; newSide: string; removed: string }
+export interface PatchHunk { path: string; header: string; newSide: string; removed: string; removedLines: string[] }
 
 export function parsePatch(patch: string): PatchHunk[] {
   const hunks: PatchHunk[] = [];
   let path = "";
   let cur: { header: string; newLines: string[]; removedLines: string[] } | undefined;
-  const flush = () => { if (cur) hunks.push({ path, header: cur.header, newSide: norm(cur.newLines.join("\n")), removed: norm(cur.removedLines.join("\n")) }); cur = undefined; };
+  const flush = () => { if (cur) hunks.push({ path, header: cur.header, newSide: norm(cur.newLines.join("\n")), removed: norm(cur.removedLines.join("\n")), removedLines: cur.removedLines.map(norm).filter(Boolean) }); cur = undefined; };
   for (const line of patch.split("\n")) {
     const m = line.match(/^diff --git a\/(\S+) b\/(\S+)/);
     if (m) { flush(); path = m[2]!; continue; }
@@ -74,9 +74,14 @@ function checkRepoQuote(e: Evidence, workspace: string): string | null {
   if (!m) return `evidence ref "${e.ref}" is not "path" or "path:L<start>-L<end>"`;
   const rel = m[1]!;
   const abs = resolve(workspace, rel);
+  const root = realpathSync(resolve(workspace));
   if (!abs.startsWith(resolve(workspace) + sep)) return `evidence ref "${rel}" escapes the repository`;
   if (!existsSync(abs) || !statSync(abs).isFile()) return `evidence ref "${rel}" does not exist in the repository at the base commit`;
-  const text = readFileSync(abs, "utf8");
+  // Follow symlinks and require the real file to live inside the repository: a tracked symlink must not let a quote
+  // be "verified" against labels or any other host file.
+  const real = realpathSync(abs);
+  if (!real.startsWith(root + sep)) return `evidence ref "${rel}" is a link to a file outside the repository`;
+  const text = readFileSync(real, "utf8");
   const found = findQuote(norm(text), e.quote);
   if (found.index < 0) return `evidence quote not found in "${rel}" (${found.problem})`;
   if (m[2]) {
@@ -96,15 +101,21 @@ function checkRepoQuote(e: Evidence, workspace: string): string | null {
 function checkPatchQuote(e: Evidence, patch: string, label: string): string | null {
   const hunks = parsePatch(patch);
   const ref = e.ref.replace(/^[ab]\//, "").replace(/:L?\d+(-L?\d+)?$/, "");
-  const fileHunks = hunks.filter((h) => h.path === ref || h.path.endsWith(`/${ref}`) || ref.endsWith(`/${h.path}`));
-  if (fileHunks.length === 0) return `evidence ref "${e.ref}" is not a file touched by ${label} (touched: ${[...new Set(hunks.map((h) => h.path))].join(", ") || "none"})`;
+  const touched = [...new Set(hunks.map((h) => h.path))];
+  // Exact path, or a bare file name that identifies exactly one touched file. No prefix/suffix guessing.
+  const matches = touched.filter((p) => p === ref || (!ref.includes("/") && p.split("/").pop() === ref));
+  if (matches.length !== 1) return `evidence ref "${e.ref}" ${matches.length === 0 ? "is not a file touched by" : "is ambiguous within"} ${label} (touched: ${touched.join(", ") || "none"})`;
+  const fileHunks = hunks.filter((h) => h.path === matches[0]);
   // Route each quoted line by its diff marker: "-" lines must exist among the removed lines, everything else on the
   // new side (context + added). Both sides must come from the SAME hunk — a quote stitched together from distant
   // hunks is not a quote. A quote made only of removed lines is rejected: deleted code is not evidence of what the
   // tests now require; an honest before/after quote ("-old" + "+new") verifies on both sides.
   const lines = e.quote.split("\n");
-  const minus = lines.filter((l) => /^-(?!--)/.test(l)).map((l) => l.slice(1)).join("\n");
+  const minusLines = lines.filter((l) => /^-(?!--)/.test(l)).map((l) => norm(l.slice(1))).filter(Boolean);
+  const minus = minusLines.join("\n");
   const plus = lines.filter((l) => !/^-(?!--)/.test(l)).map((l) => l.replace(/^[+ ]/, "")).join("\n");
+  /** Removed lines too short for fragment search are checked as exact normalized lines of the hunk's removed side. */
+  const removedLinesOk = (h: PatchHunk) => minusLines.every((l) => l.length >= 8 ? true : h.removedLines.includes(l));
   const file = fileHunks[0]!.path;
   if (norm(plus).length === 0) {
     return fileHunks.some((h) => findQuote(h.removed, minus).index >= 0)
@@ -115,7 +126,7 @@ function checkPatchQuote(e: Evidence, patch: string, label: string): string | nu
   for (const h of fileHunks) {
     const foundNew = findQuote(h.newSide, plus);
     if (foundNew.index < 0) { plusProblem ||= foundNew.problem ?? "not found"; continue; }
-    if (norm(minus).length >= 8 && findQuote(h.removed, minus).index < 0) { minusProblem = `the "-" lines of the evidence quote are not among the lines the same hunk removes`; continue; }
+    if ((norm(minus).length >= 8 && findQuote(h.removed, minus).index < 0) || !removedLinesOk(h)) { minusProblem = `the "-" lines of the evidence quote are not among the lines the same hunk removes`; continue; }
     return null;
   }
   if (minusProblem) return `evidence quote not found within a single hunk of ${label} "${file}": ${minusProblem}`;

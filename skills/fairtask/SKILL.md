@@ -25,11 +25,17 @@ This skill drives it, and falls back to doing the probes' work yourself when the
    - a SWE-bench-style instance id such as `django__django-11099` (`--swebench <id> [--dataset princeton-nlp/SWE-bench]`);
    - a task JSON with `repo`, `base_commit`, `problem_statement`, `patch`, `test_patch`, `FAIL_TO_PASS` (`--task <file>`);
    - a pull request: run `scripts/task-from-pr.sh <owner/repo> <number> > task.json` (needs `gh`); it fills every field
-     and lists the added test functions as a best-effort FAIL_TO_PASS. Read the JSON back to the user for a
-     one-line confirmation of the issue text before screening — the PR body is not always the issue.
-2. **Locate the engine.** Use `$FAIRTASK_HOME` if set, else `~/.fairtask`. If absent:
-   `git clone https://github.com/mnkprs/fairtask ~/.fairtask && (cd ~/.fairtask && npm ci)`. Requirements: Node ≥ 22.18,
-   git, and either `ANTHROPIC_API_KEY` or a `claude login`. If any is missing and cannot be installed, go to **Manual mode**.
+     and lists the test functions the PR *added* as a best-effort FAIL_TO_PASS (modified existing tests are not
+     detected). Read the JSON back to the user for a one-line confirmation of the issue text before screening — the
+     PR body is not always the issue — and surface any `_warning` it carries. If FAIL_TO_PASS is empty or unconfirmed,
+     say that the test-axis score is provisional.
+2. **Locate the engine.** Use `FAIRTASK_HOME` if set, else `~/.fairtask`. If absent, install the release this skill
+   was published with — never a moving branch:
+   `git clone --branch v0.1.0 --depth 1 https://github.com/mnkprs/fairtask ~/.fairtask && (cd ~/.fairtask && npm ci)`.
+   If it exists, confirm it is at that release (`git -C ~/.fairtask describe --tags`) before using it; otherwise
+   re-clone. This step writes under the home directory, installs npm packages and runs code; say so if the user has
+   not seen the engine installed before. Requirements: Node ≥ 22.18, git, and either `ANTHROPIC_API_KEY` or a
+   `claude login`. If any is missing and cannot be installed, go to **Manual mode**.
 3. **Run** from the engine directory: `npm run screen -- <input flags> [--variant v3-verify]`. Expect about three minutes and
    about one US dollar per task at list price (`--variant v5-cheap-probes` ≈ 55 cents). The result is `screenings/<instance_id>/verdict.json`
    and the trajectory next to it. If the run stops with a session/usage-limit error, say so and stop — do not retry in a loop.

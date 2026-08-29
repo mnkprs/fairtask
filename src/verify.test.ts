@@ -1,7 +1,7 @@
 /** Adversarial tests for the deterministic verifier. Run: node --test src/verify.test.ts */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findQuote, norm, parsePatch, splitElisions, verifyVerdict } from "./lib/verify.ts";
@@ -27,6 +27,21 @@ const inst = { problem_statement: "Ideally a keyword like mask=False would disab
 const base = (evidence: Verdict["evidence"], us = 0, fn = 2): Verdict => ({ underspecified: us as 0, underspecified_rationale: "x".repeat(100), false_negative: fn as 2, false_negative_rationale: "y".repeat(100), evidence, decision: us >= 2 || fn >= 2 ? "flag" : "usable", confidence: 4 });
 const ev = (o: Partial<Verdict["evidence"][number]>) => ({ axis: "false_negative" as const, claim: "c", source: "test_patch" as const, ref: "pkg/mod.py", quote: "", ...o });
 
+test("a tracked symlink pointing outside the repository cannot supply evidence", () => {
+  const outside = join(tmpdir(), `outside-${process.pid}.py`); writeFileSync(outside, "secret_label = 'flag'\n");
+  symlinkSync(outside, join(ws, "pkg", "leak.py"));
+  const p = verifyVerdict(base([ev({ source: "repo", ref: "pkg/leak.py", quote: "secret_label = 'flag'" })]), inst, ws);
+  assert.match(p.join("\n"), /outside the repository/);
+});
+test("a short fabricated '-' line paired with a real '+' line is rejected", () => {
+  const p = verifyVerdict(base([ev({ quote: "-x\n+    assert new_behaviour(path, mask_invalid=False) == 2" })]), inst, ws);
+  assert.match(p.join("\n"), /"-" lines .* not among the lines/);
+});
+test("a patch ref must be an exact touched path or a unique file name", () => {
+  assert.deepEqual(verifyVerdict(base([ev({ ref: "mod.py", quote: "assert new_behaviour(path, mask_invalid=False) == 2" })]), inst, ws), []);
+  const p = verifyVerdict(base([ev({ ref: "other/pkg/mod.py", quote: "assert new_behaviour(path, mask_invalid=False) == 2" })]), inst, ws);
+  assert.match(p.join("\n"), /not a file touched by/);
+});
 test("a quote of an added line verifies", () => {
   assert.deepEqual(verifyVerdict(base([ev({ quote: "assert new_behaviour(path, mask_invalid=False) == 2" })]), inst, ws), []);
 });

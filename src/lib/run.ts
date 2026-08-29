@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { dirname, isAbsolute, resolve, sep } from "node:path";
 import { query, type HookCallback, type Options, type SDKMessage, type SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
@@ -6,7 +6,7 @@ import type { EvalInstance, Prediction, TaskInstance, Verdict } from "./types.ts
 import type { Variant, RunContext } from "./variant.ts";
 import { extractVerdict, parseVerdict } from "./verdict.ts";
 import { TrajectoryWriter } from "./trajectory.ts";
-import { resultsDir, trajectoryPath, workspaceDir } from "./paths.ts";
+import { ROOT, resultsDir, trajectoryPath, workspaceDir } from "./paths.ts";
 import { VERIFIER_VERSION } from "./verify.ts";
 import { VERDICT_JSON_SCHEMA } from "./verdict.ts";
 
@@ -46,14 +46,23 @@ export function workspaceGuard(workspace: string): HookCallback {
 }
 
 /** Bump when runner semantics change in a way that makes earlier predictions incomparable. */
-export const PIPELINE_VERSION = "2";
+export const PIPELINE_VERSION = "3";
 
-/** Stable fingerprint of what a run is: pipeline + verifier version, variant, model, the exact prompts, tools, schema and limits — so resumes cannot mix systems. */
-export function runFingerprint(variant: Variant, model: string, sampleInst: TaskInstance): string {
+/** Digest of every task field that reaches a prompt, over the ordered instance set, plus the calibration memory if present. */
+export function inputsDigest(instances: TaskInstance[]): string {
+  const h = createHash("sha256");
+  for (const i of instances) h.update(JSON.stringify([i.instance_id, i.repo, i.base_commit, i.problem_statement, i.patch, i.test_patch, i.FAIL_TO_PASS]));
+  const cal = `${ROOT}data/eval/calibration.json`;
+  if (existsSync(cal)) h.update(readFileSync(cal));
+  return h.digest("hex").slice(0, 16);
+}
+
+/** Stable fingerprint of what a run is: pipeline + verifier version, variant, model, the exact prompts, tools, schema, limits and the full input set — so resumes cannot mix systems or inputs. */
+export function runFingerprint(variant: Variant, model: string, sampleInst: TaskInstance, instances: TaskInstance[] = [sampleInst]): string {
   const built = variant.build(sampleInst, { model, workspace: "/workspace" });
   const agents = Object.fromEntries(Object.entries(built.options.agents ?? {}).map(([k, a]) => [k, { prompt: a.prompt, tools: a.tools, model: a.model }]));
   return createHash("sha256").update(JSON.stringify({
-    pipeline: PIPELINE_VERSION, verifier: VERIFIER_VERSION, variant: variant.name, model,
+    pipeline: PIPELINE_VERSION, verifier: VERIFIER_VERSION, variant: variant.name, model, inputs: inputsDigest(instances),
     prompt: built.prompt, systemPrompt: built.options.systemPrompt, tools: built.options.tools, allowedTools: built.options.allowedTools,
     hooks: Object.keys(built.options.hooks ?? {}), agents, outputSchema: built.options.outputFormat ?? VERDICT_JSON_SCHEMA,
     maxTurns: built.options.maxTurns, maxBudgetUsd: built.options.maxBudgetUsd, maxRetries: variant.maxRetries ?? 0, hasValidator: Boolean(variant.validate),
@@ -87,7 +96,7 @@ function loadDone(dir: string, retryErrors: boolean): Set<string> {
     preds = preds.filter((p) => p.verdict);
     if (dropped.length) console.log(`moved ${dropped.length} errored prediction(s) to attempts-errored.jsonl for re-run`);
   }
-  if (preds.length !== raw.length) writeFileSync(path, preds.map((p) => `${JSON.stringify(p)}\n`).join(""));
+  if (preds.length !== raw.length) { const tmp = `${path}.${process.pid}.tmp`; writeFileSync(tmp, preds.map((p) => `${JSON.stringify(p)}\n`).join("")); renameSync(tmp, path); }
   return new Set(preds.map((p) => p.instance_id));
 }
 
@@ -167,7 +176,18 @@ export async function runAll(variant: Variant, opts: RunOpts) {
   mkdirSync(dir, { recursive: true });
   const predPath = `${dir}/predictions.jsonl`;
   const runJson = `${dir}/run.json`;
-  const fingerprint = runFingerprint(variant, opts.model, opts.instances[0]!);
+  // One process per run directory, acquired atomically (O_EXCL) before anything is read or truncated.
+  const lock = `${dir}/run.lock`;
+  const acquire = () => { try { const fd = openSync(lock, "wx"); writeFileSync(fd, String(process.pid)); closeSync(fd); return true; } catch { return false; } };
+  if (!acquire()) {
+    const pid = Number(readFileSync(lock, "utf8"));
+    let alive = false; try { process.kill(pid, 0); alive = true; } catch { /* stale */ }
+    if (alive) { console.error(`run "${opts.runId}" is already being executed by process ${pid}; refusing to start a second runner on the same run id.`); process.exit(2); }
+    unlinkSync(lock);
+    if (!acquire()) { console.error(`could not acquire ${lock}`); process.exit(2); }
+  }
+  process.on("exit", () => { try { if (Number(readFileSync(lock, "utf8")) === process.pid) unlinkSync(lock); } catch { /* already gone */ } });
+  const fingerprint = runFingerprint(variant, opts.model, opts.instances[0]!, opts.instances);
   if (opts.force) { writeFileSync(predPath, ""); if (existsSync(`${dir}/attempts-errored.jsonl`)) writeFileSync(`${dir}/attempts-errored.jsonl`, ""); }
   else if (existsSync(runJson)) {
     const prev = JSON.parse(readFileSync(runJson, "utf8")) as { fingerprint?: string; variant?: string; model?: string };
@@ -176,15 +196,6 @@ export async function runAll(variant: Variant, opts: RunOpts) {
       process.exit(2);
     }
   }
-  // One process per run directory: a second concurrent runner would pay twice for the same instances.
-  const lock = `${dir}/run.lock`;
-  if (existsSync(lock)) {
-    const pid = Number(readFileSync(lock, "utf8"));
-    let alive = false; try { process.kill(pid, 0); alive = true; } catch { /* stale */ }
-    if (alive) { console.error(`run "${opts.runId}" is already being executed by process ${pid}; refusing to start a second runner on the same run id.`); process.exit(2); }
-  }
-  writeFileSync(lock, String(process.pid));
-  process.on("exit", () => { try { unlinkSync(lock); } catch { /* already gone */ } });
   const done = loadDone(dir, opts.retryErrors);
   writeFileSync(runJson, JSON.stringify({ run_id: opts.runId, variant: variant.name, description: variant.description, model: opts.model, fingerprint, started_at: new Date().toISOString(), n_instances: opts.instances.length }, null, 2));
   const queue = opts.instances.filter((i) => !done.has(i.instance_id));
