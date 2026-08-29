@@ -27,10 +27,16 @@ except `data` and `annotations`, which download pinned public files. None calls 
    | evidence audit, bad evidence, fabricated quotes | `npm run audit -- <run ids…>` (needs cloned workspaces: `npm run data:workspaces` first, ~20 s) |
    | code check, novel identifiers, pre-check | `npm run code-check` (needs workspaces) |
    | provenance, annotations, checksum, data source | `npm run data:annotations -- --check` |
-   | show an instance, lay out, issue text, test patch of `<id>` | `npm run show -- <instance_id>` then read back `examples/<instance_id>/issue.md`, `test.patch`, `human-labels.md` |
+   | show an instance, lay out, issue text, test patch of `<id>` | `npm run show -- <instance_id>`, then open `examples/<instance_id>/human-labels.md`, `issue.md` and `test.patch` yourself and present them as described in step 3 — do not paste the files |
    | trajectory, what the agent did on `<id>` in run `<run>` | `npm run trajectory -- trajectories/<run>/<instance_id>.jsonl` and open the rendered `.md` |
 
 3. **Show the output verbatim** in a code block. Do not round, reorder or summarise numbers before the block.
+   Exception — **lay out an instance**: the command only writes files. Show its one `wrote …` line, then the human
+   labels from `human-labels.md` as one line (`underspecified=N, false_negative=N, difficulty, filter_out`), then the
+   lines that decide the case, quoted exactly with `file:line` — what the issue asks for (from `issue.md`), and what
+   the graded tests require that the issue does not say (from `test.patch`; the `+` lines of the FAIL_TO_PASS tests).
+   Two to four quotes, no more; point to `examples/<instance_id>/` for the full text. Done when a reader can see the
+   discrepancy (or its absence) without opening the files.
 4. **Add one or two sentences** on how to read it — which row is the primary metric (decision accuracy), that
    TPR/TNR are over scored cases only, that "bad evidence" is the share of cited quotes not found where cited. For the
    evaluation set, name the four strata and the count per stratum. Stop there; the reader asked for the artifact, not
