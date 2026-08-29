@@ -1,6 +1,11 @@
 # astropy__astropy-12544 — the issue text (all a solver sees)
 
-Repository astropy/astropy at 3a0cd2d8cd7b459cdc1e1b97a14f3040ccc1fffc
+- Repository: https://github.com/astropy/astropy
+- Base commit (the code a solver gets): https://github.com/astropy/astropy/commit/3a0cd2d8cd7b459cdc1e1b97a14f3040ccc1fffc
+- Fixing pull request (gold patch + test patch; the original issue is linked from it): https://github.com/astropy/astropy/pull/12544
+- SWE-bench instance: `astropy__astropy-12544` (dataset princeton-nlp/SWE-bench, test split)
+
+---
 
 Can Table masking be turned off?
 <!-- This comments are hidden when you submit the issue,
