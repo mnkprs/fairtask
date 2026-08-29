@@ -20,7 +20,8 @@
     "code-check": "node src/code-check.ts",
     "screen": "node src/screen.ts",
     "validate:manifests": "node scripts/validate-manifests.mjs",
-    "data:annotations": "node src/data/fetch-annotations.ts"
+    "data:annotations": "node src/data/fetch-annotations.ts",
+    "show": "node src/show.ts"
   },
   "license": "MIT",
   "dependencies": {
