@@ -310,7 +310,7 @@ at `REPRODUCE.md` instead.
 |---|---|
 | `/fairtask-eval show the evaluation set` | `npm run data:eval-set` — the 30-row table (instance, stratum, human scores, difficulty, sizes) and the per-stratum and per-repository counts. |
 | `/fairtask-eval score baseline v3-verify` | `npm run score -- baseline v3-verify` — decision accuracy, κ, TPR/TNR, missed/false alarms, per-axis agreement, cost and time, side by side. |
-| `/fairtask-eval the headline report, baseline versus final` | `node src/report.ts …` — the two tables in §4. |
+| `/fairtask-eval the headline report, baseline versus final` | `node src/report.ts …` — the two tables in §4, as aligned terminal tables. |
 | `/fairtask-eval audit evidence for v3-verify` | `npm run audit -- v3-verify` — share of cited quotes that do not exist where cited (needs `npm run data:workspaces`, which it tells you to run). |
 | `/fairtask-eval check the annotation provenance` | `npm run data:annotations -- --check` — SHA-256 of the committed file against the pinned source. |
 | `/fairtask-eval lay out astropy__astropy-12544` | `npm run show -- astropy__astropy-12544` — writes `examples/<id>/` and reads back the issue and the test patch. |
@@ -355,8 +355,9 @@ a complete command; rows with the same script differ by one flag.
 | `npm run score -- baseline v3-verify --detail` | Adds one row per instance: human scores, predicted scores, decision, cost. |
 | `npm run score -- baseline v3-verify --common` | Restricts every run to the instances all listed runs scored (for comparing partial runs). |
 | `npm run score -- baseline --json` | The summary as JSON instead of the table. |
-| `node src/report.ts --baseline baseline --final v3-verify` | Prints the README's headline comparison table for those two runs. |
-| `node src/report.ts --baseline baseline --final v5-cheap-probes --final-repeat v5-rerun` | Shows the final configuration as "first run · repeat run" in the headline table. |
+| `node src/report.ts --baseline baseline --final v3-verify` | Prints the headline comparison of those two runs as an aligned terminal table (the same rows as §4). |
+| `node src/report.ts --baseline baseline --final v3-verify --markdown` | The same as a Markdown pipe table — what `scripts/finalize-report.py` pastes into this README. |
+| `node src/report.ts --baseline baseline --final v5-cheap-probes --final-repeat v5-rerun` | Shows the final configuration as "first run · repeat run". The repeat must be a run of the same configuration; the script refuses otherwise. |
 | `node src/report.ts --baseline baseline --final v3-verify --runs baseline,v1-context,v3-verify` | Adds the all-systems table with those runs as rows. |
 | `npm run audit -- baseline v3-verify` | Runs the deterministic verifier over every stored verdict: how many cited quotes do not exist where cited. Needs cloned workspaces at the right commits (refuses otherwise). |
 | `npm run code-check` | The zero-LLM pre-check: identifiers used by graded tests, introduced by the gold patch, absent from issue and repository; prints per-instance hits and TPR/TNR against the human label. Needs workspaces. |

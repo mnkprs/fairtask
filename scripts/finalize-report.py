@@ -6,7 +6,7 @@ root = pathlib.Path(__file__).resolve().parent.parent
 final, runs = sys.argv[1], sys.argv[2:]
 final_repeat = next((r for r in runs if r == f"{final.split('-')[0]}-rerun"), None)
 subprocess.run(["node", "src/score.ts", *runs], cwd=root, check=True, capture_output=True)
-report = subprocess.run(["node", "src/report.ts", "--baseline", "baseline", "--final", final, *(["--final-repeat", final_repeat] if final_repeat else []), "--runs", ",".join(runs)], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
+report = subprocess.run(["node", "src/report.ts", "--baseline", "baseline", "--final", final, *(["--final-repeat", final_repeat] if final_repeat else []), "--markdown", "--runs", ",".join(runs)], cwd=root, check=True, capture_output=True, text=True).stdout.strip()
 readme = (root / "README.md").read_text()
 start = readme.index("### Headline comparison"); end = readme.index("*How to read this.*")
 readme = readme[:start] + report + "\n\n" + readme[end:]
