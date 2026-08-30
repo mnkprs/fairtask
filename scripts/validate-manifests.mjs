@@ -19,7 +19,7 @@ if (codex.version !== claude.version) fail("codex plugin.json: version differs f
 if (typeof codex.skills !== "string" || !existsSync(codex.skills)) fail("codex plugin.json: skills must point at an existing directory");
 const caps = codex.interface?.capabilities ?? [];
 for (const c of ["Read", "Write", "Network", "Execute"]) if (!caps.includes(c)) fail(`codex plugin.json: capabilities must disclose ${c} (the skill clones, installs and runs the engine)`);
-for (const name of ["fairtask", "fairtask-eval"]) {
+for (const name of ["fairtask", "fairtask-baseline", "fairtask-report", "fairtask-score", "fairtask-cases", "fairtask-trajectory", "fairtask-eval"]) {
   const text = readFileSync(`skills/${name}/SKILL.md`, "utf8");
   const front = text.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
   if (!new RegExp(`^name: ${name}$`, "m").test(front)) fail(`skills/${name}/SKILL.md: frontmatter name must be ${name}`);

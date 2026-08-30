@@ -256,7 +256,19 @@ the model's memory.
 | Claude Code, as a plugin | `/plugin marketplace add mnkprs/fairtask` then `/plugin install fairtask@fairtask` | both skills (plugin manifest in `.claude-plugin/`) |
 | Codex, as a plugin | the repository carries `.codex-plugin/plugin.json` | both skills |
 
-Both skills need Node ≥ 22.18 and git. `/fairtask` also needs a Claude login or `ANTHROPIC_API_KEY`, because it runs
+One install brings the whole command set:
+
+| Command | What it does | Model calls |
+|---|---|---|
+| `/fairtask <id \| task.json \| owner/repo PR#>` | Screen a task with the full pipeline; verdict with verified evidence. | yes (~one dollar) |
+| `/fairtask-baseline <id \| task.json>` | The same task through the one-prompt baseline, for comparison; its evidence is *not* machine-verified. | yes (~fifteen cents) |
+| `/fairtask-report` | The headline and all-systems tables from the committed results. | no |
+| `/fairtask-score [run ids…]` | Metrics of runs against the human labels. | no |
+| `/fairtask-cases [id]` | The 30-case evaluation set, or one instance laid out with its decisive lines quoted. | no |
+| `/fairtask-trajectory <id> [run]` | What the agent did on an instance, tool call by tool call. | no |
+| `/fairtask-eval …` | The supporting checks: evidence audit, zero-LLM code check, data provenance. | no |
+
+All need Node ≥ 22.18 and git. `/fairtask` also needs a Claude login or `ANTHROPIC_API_KEY`, because it runs
 the model; `/fairtask-eval` needs neither.
 
 ### `/fairtask` — screen a task
@@ -303,21 +315,21 @@ release tag** (`--branch v0.1.0`), never a moving branch, runs `npm ci`, and say
 its own read-only tools, following `skills/fairtask/references/method.md`, re-opens every location it cites to
 confirm the quote, and states in the report that the quotes were self-checked rather than machine-verified.
 
-### `/fairtask-eval` — reproduce and inspect the evaluation
+### The evaluation commands — reproduce and inspect every number
 
 Everything a judge or reviewer might want to see, run from inside the session with the output printed verbatim.
-No model calls; offline except the two pinned data downloads; it refuses to start paid reproduction runs and points
+No model calls; offline except the two pinned data downloads; they refuse to start paid reproduction runs and point
 at `REPRODUCE.md` instead.
 
 | You type | What it runs, and shows |
 |---|---|
-| `/fairtask-eval show the evaluation set` | `npm run data:eval-set` — the 30-row table (instance, stratum, human scores, difficulty, sizes) and the per-stratum and per-repository counts. |
-| `/fairtask-eval score baseline v3-verify` | `npm run score -- baseline v3-verify` — decision accuracy, κ, TPR/TNR, missed/false alarms, per-axis agreement, cost and time, side by side. |
-| `/fairtask-eval the headline report, baseline versus final` | `node src/report.ts …` — the two tables in §4, as aligned terminal tables. |
+| `/fairtask-cases` | `npm run data:eval-set` — the 30-row table (instance, stratum, human scores, difficulty, sizes) and the per-stratum and per-repository counts. |
+| `/fairtask-score baseline v3-verify` | `npm run score -- baseline v3-verify` — decision accuracy, κ, TPR/TNR, missed/false alarms, per-axis agreement, cost and time, side by side. |
+| `/fairtask-report` | `node src/report.ts …` — the two tables in §4, as aligned terminal tables. |
 | `/fairtask-eval audit evidence for v3-verify` | `npm run audit -- v3-verify` — share of cited quotes that do not exist where cited (needs `npm run data:workspaces`, which it tells you to run). |
 | `/fairtask-eval check the annotation provenance` | `npm run data:annotations -- --check` — SHA-256 of the committed file against the pinned source. |
-| `/fairtask-eval lay out astropy__astropy-12544` | `npm run show -- astropy__astropy-12544` — writes `examples/<id>/`, then shows the human labels and quotes, with `file:line`, what the issue asks for and what the graded tests require. |
-| `/fairtask-eval what did the agent do on astropy__astropy-12544 in v3-verify` | renders and opens that run's trajectory. |
+| `/fairtask-cases astropy__astropy-12544` | `npm run show -- astropy__astropy-12544` — writes `examples/<id>/`, then shows the human labels and quotes, with `file:line`, what the issue asks for and what the graded tests require. |
+| `/fairtask-trajectory astropy__astropy-12544 v3-verify` | renders and opens that run's trajectory. |
 
 ### What the skills may and may not do
 
