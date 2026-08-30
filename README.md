@@ -97,11 +97,14 @@ pipeline. What the pipeline checks is *executability*. It cannot check the two t
   under-specified issue, 61% for tests that would reject reasonable solutions. The public annotation file is
   committed as `data/raw/ensembled_annotations_public.csv`; its provenance (publisher, pinned mirror commit, SHA-256,
   what CI re-verifies) is in [`data/raw/SOURCES.md`](data/raw/SOURCES.md).
-- On 23 February 2026 OpenAI **stopped reporting SWE-bench Verified**. Auditing the hardest 27.6% of the set, they
-  found that at least **59.4% of those problems had tests that reject functionally correct submissions**, on top of
-  training contamination — i.e. the human-verified set still contained the second defect at scale
-  ([OpenAI, 2026](https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/)). They recommend
-  SWE-bench Pro instead.
+- In February 2026 OpenAI **stopped reporting SWE-bench Verified**. Auditing the 138 hardest problems (the 27.6%
+  of the set its o3 runs could not consistently solve), with at least six engineers per case, they found **material
+  issues in test design and/or problem description in 59.4%** of them — 35.5% *narrow* tests that enforce
+  implementation details and reject functionally correct submissions, 18.8% *wide* tests that demand functionality
+  the issue never specified, 5.1% miscellaneous — on top of training contamination
+  ([OpenAI, 2026](https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/)). Their taxonomy is this
+  report's two axes: tests mis-scoped for the issue, and issues that under-specify. They recommend SWE-bench Pro,
+  new uncontaminated private benchmarks, and expert grading.
 - The successors institutionalised the screening step. **SWE-bench Pro** (Scale AI) adds three human-in-the-loop
   checkpoints: environment construction, human rewriting of under-specified issues into requirements, and human
   verification of the tests ([Scale AI](https://scale.com/blog/swe-bench-pro)). **SWE-rebench V2** (ICML 2026;
@@ -114,7 +117,7 @@ pipeline. What the pipeline checks is *executability*. It cannot check the two t
 maintainers, the RL-environment teams generating tens of thousands of training tasks, and the evaluation engineers
 who decide which tasks to trust when they compare coding agents. The bottleneck is the screening pass between
 "executable" and "fair". Today it is done in one of two ways: **expensive** — expert review, which even at
-three annotators per task left a 59% flaw rate on the hard subset — or **shallow** — an ensemble of LLM judges that
+three annotators per task left material issues in 59% of the hard subset — or **shallow** — an ensemble of LLM judges that
 reads the issue and diff but not the repository, and returns a score without evidence. Neither gives a reviewer
 something to check. An unscreened task is worse than a missing one: it penalises solvers for guessing a name wrong,
 which corrupts rankings and, in RL, rewards the wrong behaviour.
