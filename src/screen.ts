@@ -52,7 +52,7 @@ mkdirSync(outDir, { recursive: true });
 console.log(`fairtask · ${task.instance_id} · ${variantName} · ${args.get("model") ?? "claude-opus-5"}`);
 // Variants with no tools and no subagents (the baseline) never read the repository — skip the clone entirely.
 const probeBuild = variant.build(task, { model: args.get("model") ?? "claude-opus-5", workspace: "/nonexistent" });
-const needsRepo = (probeBuild.options.tools?.length ?? 0) > 0 || probeBuild.options.agents !== undefined;
+const needsRepo = (Array.isArray(probeBuild.options.tools) ? probeBuild.options.tools.length > 0 : probeBuild.options.tools !== undefined) || probeBuild.options.agents !== undefined;
 if (needsRepo) {
   const ws = await prepareWorkspace(task);
   console.log(`repository ${task.repo} @ ${task.base_commit.slice(0, 10)} (${ws.status}) → ${ws.dir}`);

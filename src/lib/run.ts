@@ -151,7 +151,7 @@ export async function runOne(variant: Variant, inst: TaskInstance, opts: Pick<Ru
   });
   // A variant with no tools and no subagents (the baseline) never touches the repository: no guard, and the
   // workspace need not exist. The guard is constructed lazily so a missing workspace only fails repo-using variants.
-  const usesRepo = (options.tools?.length ?? 0) > 0 || options.agents !== undefined;
+  const usesRepo = (Array.isArray(options.tools) ? options.tools.length > 0 : options.tools !== undefined) || options.agents !== undefined;
   const hooks = usesRepo
     ? { ...(options.hooks ?? {}), PreToolUse: [{ matcher: "Read|Grep|Glob|NotebookRead", hooks: [workspaceGuard(ctx.workspace)] }, ...(options.hooks?.PreToolUse ?? [])] }
     : options.hooks ?? {};
