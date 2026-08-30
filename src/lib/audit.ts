@@ -28,7 +28,7 @@ export function requireWorkspaces(ids: Iterable<string>): void {
       if (git("status", "--porcelain", "--untracked-files=all") !== "") problems.push(`${id}: working tree has modified or untracked files`);
     } catch (e) { problems.push(`${id}: ${(e as Error).message.split("\n")[0]}`); }
   }
-  if (problems.length) throw new Error(`${problems.length} workspace(s) cannot be used for verification:\n  ${problems.slice(0, 5).join("\n  ")}${problems.length > 5 ? "\n  …" : ""}\nRun \`npm run data:workspaces\` to (re)clone them at the base commit.`);
+  if (problems.length) throw new Error(`${problems.length} workspace(s) cannot be used for verification (fix: npm run data:workspaces):\n  ${problems.slice(0, 5).join("\n  ")}${problems.length > 5 ? "\n  …" : ""}\nRun \`npm run data:workspaces\` to (re)clone them at the base commit.`);
 }
 
 export function auditRun(runId: string): Audit {

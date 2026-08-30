@@ -38,13 +38,13 @@ Two public inputs, both already committed under `data/`:
   `npm run data:annotations` re-downloads it from the pinned source commit and refuses a mismatching file.
 - `data/eval/instances.json` — the fixed evaluation set: 30 instances (seed `20260828`), each with its issue text,
   gold patch, test patch, FAIL_TO_PASS list and the human labels. `data/eval/calibration.json` holds the annotator
-  notes for the *other* 1,600+ instances, grouped by repository (used by the final variant; contains no eval instance).
+  notes for the *other* 1,600+ instances, grouped by repository (used only by the `v4`–`v6` experimental configurations, not by the `v3-verify` default; contains no eval instance).
 
 To rebuild them from scratch (needs the 12 MB SWE-bench parquet, not committed):
 
 ```bash
-curl -L -o data/raw/swebench_test.parquet \
-  "https://huggingface.co/datasets/princeton-nlp/SWE-bench/resolve/main/data/test-00000-of-00001.parquet"
+curl --fail -L -o data/raw/swebench_test.parquet \
+  "https://huggingface.co/datasets/princeton-nlp/SWE-bench/resolve/e48e2bd1e9fecd5bbd641e9414ac59da9f2e69f6/data/test-00000-of-00001.parquet"
 npm run data:eval-set        # -> data/eval/instances.json  (prints the 30 instances and strata)
 npm run data:calibration     # -> data/eval/calibration.json
 ```
@@ -116,8 +116,8 @@ of them with `scripts/render-trajectories.sh <run-id>`.
 
 ## 5. Evaluate
 
-`npm run score` needs only the committed results. `evidence-audit`, `code-check` and `finalize-report.py` re-read the
-repositories at the base commit, so run `npm run data:workspaces` first (they refuse to run otherwise).
+`npm run score` needs only the committed results. `report.ts`, `evidence-audit`, `code-check` and `finalize-report.py`
+re-read the repositories at the base commit, so run `npm run data:workspaces` first (they refuse to run otherwise).
 
 ```bash
 npm run score -- baseline baseline-rerun v1-context v2-specialists v3-verify v4-calibrated v5-cheap-probes v5-rerun v6-target-aware v7-sonnet-nocal

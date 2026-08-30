@@ -23,7 +23,13 @@ const delta = (a: number, b: number, fmt: (x: number) => string, betterHigh = tr
 const base = load(args.get("baseline") ?? "baseline");
 const fin = load(args.get("final") ?? "v3-verify");
 const rep = args.get("final-repeat") ? load(args.get("final-repeat")!) : undefined;
-if (rep && rep.variant !== fin.variant) throw new Error(`--final-repeat ${rep.run_id} is a run of variant "${rep.variant}", not of the final configuration "${fin.variant}" (${fin.run_id}); a repeat must be the same configuration run again`);
+if (rep) {
+  const mismatch: string[] = [];
+  if (rep.variant !== fin.variant) mismatch.push(`variant "${rep.variant}" vs "${fin.variant}"`);
+  if (rep.model !== fin.model) mismatch.push(`model "${rep.model}" vs "${fin.model}"`);
+  if (rep.n !== fin.n || rep.n_flag !== fin.n_flag || rep.n_usable !== fin.n_usable) mismatch.push(`case universe ${rep.n} (${rep.n_flag}/${rep.n_usable}) vs ${fin.n} (${fin.n_flag}/${fin.n_usable})`);
+  if (mismatch.length) throw new Error(`--final-repeat ${rep.run_id} is not a repeat of ${fin.run_id}: ${mismatch.join("; ")}. A repeat must be the same configuration on the same cases run again.`);
+}
 const format: TableFormat = args.get("markdown") ? "markdown" : "table";
 /** Show "first / repeat" when a repeat run of the final configuration exists. */
 const both = (f: (s: Summary) => string) => (rep ? `${f(fin)} · ${f(rep)}` : f(fin));
@@ -44,12 +50,12 @@ const headline: string[][] = [
   [`Cost per task (USD, list price)`, `${usd(base.mean_cost_usd)}`, `${usd(fin.mean_cost_usd)}`, `${delta(base.mean_cost_usd, fin.mean_cost_usd, usd, false)}`],
   [`Challenging case (\`${fin.challenging?.instance_id}\`)`, `${base.challenging?.correct ? "correct" : "wrong"} (${base.challenging?.pred})`, `${fin.challenging?.correct ? "correct" : "wrong"} (${fin.challenging?.pred})`, `human: ${fin.challenging?.human}`],
 ];
-console.log(renderTitle(`Headline comparison (${base.n} cases, same cases and same deciding model for both${rep ? "; final shown as first run · repeat run" : ""})`, format));
+console.log(renderTitle(`Headline comparison (${base.n} cases, development set — same cases and same deciding model for both${rep ? "; final shown as first run · repeat run" : ""})`, format));
 console.log(renderTable(["Metric", `Simple baseline (\`${base.run_id}\`)`, `Agent solution (\`${fin.run_id}\`)`, "Change"], headline, format));
 
 const runs = (args.get("runs") ?? "").split(",").filter(Boolean).map(load);
 if (runs.length) {
-  console.log("\n" + renderTitle(`All systems on the same ${base.n} cases`, format));
+  console.log("\n" + renderTitle(`All systems on the same ${base.n} cases (development set)`, format));
   console.log(renderTable(
     ["Run", "Decision acc.", "κ", "TPR / TNR", "Missed / false alarms", "Both axes", "Bad evidence", "Cost/task", "Time/task"],
     runs.map((r) => [`\`${r.run_id}\``, pct(r.decision_accuracy), r.kappa.toFixed(2), `${pct(r.tpr)} / ${pct(r.tnr)}`, `${r.missed_problems} / ${r.false_alarms}`, pct(r.both_axes_correct), badRate(r.run_id), usd(r.mean_cost_usd), `${Math.round(r.mean_duration_s)} s`]),

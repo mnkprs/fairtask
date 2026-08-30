@@ -587,7 +587,6 @@ No matches found
 {
   "underspecified": 2,
   "underspecified_rationale": "The issue's high-level ask (a keyword on Table.read to disable automatic masking) is legible, and the NaN-masking site is discoverable (astropy/io/fits/connect.py:L249-L252 is the only such site in astropy/io). But three test-determinative decisions are left blank: (1) the keyword name — the issue proposes `mask=False`, the gold API is `mask_invalid`, and grep shows no pre-existing `mask_invalid` convention anywhere in the package to guide the solver; (2) whether the flag should also suppress empty-string masking (the issue only ever names NaN) while leaving the integer `col.null` branch masked (gold leaves it unguarded) — the issue does not resolve which masking paths \"this behavior\" covers; (3) the memmap interaction is never mentioned at all, yet gold makes `memmap=True` silently imply no masking. The issue is also phrased generically about `Table.read()` while the fix is FITS-only.",
-  "false_negative": 3,
   "false_negative_rationale": "The FAIL_TO_PASS tests pin three gold-patch-only choices, at least two of which defeat reasonable solutions. (a) `tab = Table.read(filename, mask_invalid=False)` requires the exact kwarg name `mask_invalid`, while the issue literally proposes `mask=False`; a faithful implementation raises TypeError and fails both tests. (b) `test_mask_nans_on_read` adds `tab = Table.read(filename, memmap=True); assert tab.mask is None` — behaviour never requested in the issue. Verified at base commit that connect.py:L217-227 uses memmap only for `fits_open` and does not even forward it to the recursive `read_table_fits` call, so masking is currently applied regardless of memmap; a solver who adds only the kwarg fails this assertion. (c) `test_mask_str_on_read` requires the flag to also gate `elif issubclass(coltype, np.character): mask = col.array == b''`, though the issue mentions only NaN and gold itself inconsistently leaves the `col.null` integer branch unguarded.",
   "evidence": [
     {
@@ -640,7 +639,8 @@ No matches found
       "quote": "        if memmap:\n            # using memmap is not compatible with masking invalid value by\n            # default so we deactivate the masking\n            mask_invalid = False"
     }
   ],
-  "decision": "flag",
+   "decision": "flag",
+   "false_negative": 3,
   "confidence": 4
 }
 ```

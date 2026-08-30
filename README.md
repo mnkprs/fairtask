@@ -29,7 +29,7 @@ It is a Claude Agent SDK pipeline (TypeScript) that reads the actual repository,
 verifies every piece of evidence they cite against the code, and returns a scored verdict with quotes a reviewer can
 check. Its output is measured against **OpenAI's public human annotations** for the same tasks.
 
-**Result on 30 human-annotated cases (same cases, same deciding model for every system):** on the headline
+**Result on 30 human-annotated cases (same cases and same deciding model for every system — a development set: these same 30 cases were used to diagnose failures and design every iteration, and there is no held-out evaluation):** on the headline
 metric — agreement with the human usable/flag decision — the agent pipeline **does not reliably beat the one-prompt
 baseline**: the baseline scores 67% on two independent runs, the agent variants 60–70% with a ±2-case run-to-run
 spread. What the agent changes is measurable elsewhere: the evidence it cites is **verifiable 100% of the time**
@@ -355,7 +355,7 @@ a complete command; rows with the same script differ by one flag.
 | `npm run score -- baseline v3-verify --detail` | Adds one row per instance: human scores, predicted scores, decision, cost. |
 | `npm run score -- baseline v3-verify --common` | Restricts every run to the instances all listed runs scored (for comparing partial runs). |
 | `npm run score -- baseline --json` | The summary as JSON instead of the table. |
-| `node src/report.ts --baseline baseline --final v3-verify` | Prints the headline comparison of those two runs as an aligned terminal table (the same rows as §4). |
+| `node src/report.ts --baseline baseline --final v3-verify` | Prints the headline comparison of those two runs as an aligned terminal table (the same rows as §4). Needs cloned workspaces (`npm run data:workspaces`, ~20 s) — the bad-evidence rows re-verify every quote against the repositories. |
 | `node src/report.ts --baseline baseline --final v3-verify --markdown` | The same as a Markdown pipe table — what `scripts/finalize-report.py` pastes into this README. |
 | `node src/report.ts --baseline baseline --final v5-cheap-probes --final-repeat v5-rerun` | Shows the final configuration as "first run · repeat run". The repeat must be a run of the same configuration; the script refuses otherwise. |
 | `node src/report.ts --baseline baseline --final v3-verify --runs baseline,v1-context,v3-verify` | Adds the all-systems table with those runs as rows. |
@@ -409,7 +409,7 @@ the corrective turn). The representative ones, one per agent and one per kind of
 
 | Agent / situation | Trajectory | What to look at |
 |---|---|---|
-| **Baseline** — one prompt, no tools | [`trajectories/baseline/astropy__astropy-12544.md`](trajectories/baseline/astropy__astropy-12544.md) | Instructions and task prompt, then the verdict straight away. It flags the task (humans: flag, `false_negative` 3) but also scores the issue 2 where humans gave 0 — the right decision for half the right reasons; every later configuration keeps the flag and the same over-score on the issue axis. |
+| **Baseline** — one prompt, no tools | [`trajectories/baseline/astropy__astropy-12544.md`](trajectories/baseline/astropy__astropy-12544.md) | Instructions and task prompt, then the verdict straight away. It flags the task (humans: flag, `false_negative` 3) but also scores the issue 2 where humans gave 0 — the right decision for half the right reasons; every configuration keeps the flag, while the issue-axis score wobbles between 1 and 2 across runs (§6). |
 | **Single agent with repository tools** (v1) | [`trajectories/v1-context/astropy__astropy-12544.md`](trajectories/v1-context/astropy__astropy-12544.md) | The same prompt plus `Read`/`Grep`/`Glob`: what it reads, and how reading the code made it *more* lenient (§5, Iteration 1). |
 | **Judge + `spec-probe` + `test-probe`** (v3, the final default) | [`trajectories/v3-verify/astropy__astropy-12544.md`](trajectories/v3-verify/astropy__astropy-12544.md) | Instructions for all three agents (`### Subagent spec-probe`, `### Subagent test-probe`); the judge dispatching both in parallel; each probe's `Read`/`Grep` calls and the file contents that came back; the two probe reports with evidence; the judge re-opening the cited lines itself ("Now spot-checking the strongest claims myself"); the final verdict; `✅ Verification passed`. |
 | **Verifier feedback and a corrective turn** | [`trajectories/v4-calibrated/scikit-learn__scikit-learn-11574.md`](trajectories/v4-calibrated/scikit-learn__scikit-learn-11574.md) · [`trajectories/v5-cheap-probes/sphinx-doc__sphinx-8284.md`](trajectories/v5-cheap-probes/sphinx-doc__sphinx-8284.md) | `⛔ Verification failed (attempt 1)`: the verifier names the evidence item whose quote is not in the test patch, the exact feedback text sent to the judge, the judge's re-check with `Grep`, and the corrected verdict that passes. These are the only two corrective turns in 300 evaluation runs — the announcement that quotes will be checked did the work (§5, Iteration 3). |
@@ -453,7 +453,7 @@ matched to the runs that used it.
 
 ## 4. Results
 
-### Headline comparison (30 cases, same cases and same deciding model for both)
+### Headline comparison (30 cases, development set — same cases and same deciding model for both)
 
 | Metric | Simple baseline (`baseline`) | Agent solution (`v3-verify`) | Change |
 |---|---|---|---|
@@ -469,7 +469,7 @@ matched to the runs that used it.
 | Cost per task (USD, list price) | $0.14 | $0.95 | +$0.81 ▼ |
 | Challenging case (`astropy__astropy-12544`) | correct (us=2 fn=3 flag) | correct (us=2 fn=3 flag) | human: us=0 fn=3 flag |
 
-### All systems on the same 30 cases
+### All systems on the same 30 cases (development set)
 
 | Run | Decision acc. | κ | TPR / TNR | Missed / false alarms | Both axes | Bad evidence | Cost/task | Time/task |
 |---|---|---|---|---|---|---|---|---|
@@ -501,8 +501,9 @@ lines of a flagged task.
 the axis. Humans: issue clear (0), tests unfair (3). Every configuration found the test-axis problem with the right
 evidence — the `mask_invalid` assertions quoted from the test patch against the issue's own `mask` wording — but the
 baseline and the default pipeline (`v3-verify`) also scored `underspecified = 2`, arguing that the issue leaves the
-single-table and memmap behaviour open; only the Sonnet-probe configurations (`v5`, `v7`) put it at 1, on the human
-side of the threshold. Right decision, one axis debatable — which is why the "both axes correct" metric exists.
+single-table and memmap behaviour open. Four runs put it at 1, on the human side of the threshold (`v1`, `v2`, `v4`
+and the first `v5` run); the baseline repeat, `v5-rerun`, `v6` and `v7` stayed at 2. Right decision, one axis
+debatable — and unstable from run to run — which is why the "both axes correct" metric exists.
 
 
 ---
