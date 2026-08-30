@@ -1,6 +1,6 @@
 ---
 name: fairtask-eval
-description: Inspect the fairtask evaluation's supporting checks from inside an agent session — audit cited evidence against the repositories, run the zero-LLM code pre-check, or verify the annotation data's provenance and checksum — and route anything else to the dedicated commands (/fairtask-report, /fairtask-score, /fairtask-cases, /fairtask-trajectory). Use when asked to audit evidence, run the code check, verify data provenance, or when unsure which fairtask command fits. Read-only and offline; makes no model calls.
+description: Inspect the fairtask evaluation's supporting checks from inside an agent session — audit cited evidence against the repositories, run the zero-LLM code pre-check, or verify the annotation data's provenance and checksum — and route anything else to the dedicated commands (/fairtask-report, /fairtask-score, /fairtask-cases, /fairtask-trajectory). Use when asked to audit cited evidence, run the code pre-check, or verify data provenance of the fairtask project. Makes no model calls; the audit and code check need the evaluation workspaces (about 1.2 GB of shallow clones) and say so before creating them.
 license: MIT
 metadata:
   origin: fairtask
@@ -16,8 +16,11 @@ calls a model.
 
 ## Steps
 
-1. **Locate the repository.** The current directory if its `package.json` is named `fairtask`; else `FAIRTASK_HOME`; else
-   `~/.fairtask`. If none exists, say so and stop — this skill does not clone.
+1. **Locate the engine**, in order: the current directory if its `package.json` is named `fairtask`;
+   `$CLAUDE_PLUGIN_ROOT` if set and it contains that `package.json` (the Claude Code plugin install *is* the
+   repository); `$FAIRTASK_HOME`; `~/.fairtask`. If none exists, clone the pinned release —
+   `git clone --branch v0.1.1 --depth 1 https://github.com/mnkprs/fairtask ~/.fairtask && (cd ~/.fairtask && npm ci)`
+   — and say you did (needs network and Node ≥ 22.18).
 2. **Pick the operation** from the request (one per invocation; ask if two are equally plausible):
 
    | Request mentions | Do |

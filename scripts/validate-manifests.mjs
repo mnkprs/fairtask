@@ -30,4 +30,10 @@ const skill = readFileSync("skills/fairtask/SKILL.md", "utf8");
 if (!/--branch v\d+\.\d+\.\d+/.test(skill)) fail("SKILL.md: engine install must pin a release tag");
 const pkg = read("package.json");
 if (pkg.version !== claude.version) fail(`package.json version ${pkg.version} differs from plugin version ${claude.version}`);
+const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+for (const [f, v] of [[".claude-plugin/plugin.json", claude.version], [".codex-plugin/plugin.json", codex.version], [".claude-plugin/marketplace.json", market.plugins[0]?.version]])
+  if (v !== pkg.version) fail(`${f}: version ${v} != package.json ${pkg.version}`);
+const pin = new RegExp(`--branch v${pkg.version.replace(/\./g, "\\.")}\\b`);
+for (const f of ["skills/fairtask/SKILL.md", "skills/fairtask-baseline/SKILL.md"])
+  if (!pin.test(readFileSync(f, "utf8"))) fail(`${f}: engine pin does not match version v${pkg.version}`);
 if (!process.exitCode) console.log(`manifests ok: fairtask ${claude.version}, skill frontmatter ok, capabilities disclosed`);

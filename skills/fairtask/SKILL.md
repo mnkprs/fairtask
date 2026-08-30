@@ -32,7 +32,7 @@ This skill drives it, and falls back to doing the probes' work yourself when the
      screening, and surface any `_warning` the JSON carries.
 2. **Locate the engine.** Use `FAIRTASK_HOME` if set, else `~/.fairtask`. If absent, install the release this skill
    was published with — never a moving branch:
-   `git clone --branch v0.1.0 --depth 1 https://github.com/mnkprs/fairtask ~/.fairtask && (cd ~/.fairtask && npm ci)`.
+   `git clone --branch v0.1.1 --depth 1 https://github.com/mnkprs/fairtask ~/.fairtask && (cd ~/.fairtask && npm ci)`.
    If it exists, confirm it is at that release (`git -C ~/.fairtask describe --tags`) before using it; otherwise
    re-clone. This step writes under the home directory, installs npm packages and runs code; say so if the user has
    not seen the engine installed before. Requirements: Node ≥ 22.18, git, and either `ANTHROPIC_API_KEY` or a
