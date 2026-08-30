@@ -6,6 +6,7 @@ Source: data/raw/ensembled_annotations_public.csv (provenance in data/raw/SOURCE
 |---|---|
 | underspecified | 0 |
 | false_negative | 3 |
+| difficulty | 1-4 hours |
 | filter_out | true |
 
 ## Annotator note — issue

@@ -21,9 +21,9 @@ except `data` and `annotations`, which download pinned public files. None calls 
 
    | Request mentions | Run from the repository root |
    |---|---|
-   | the evaluation set, the thirty cases, strata, which tasks | `npm run data:eval-set` (needs `data/raw/swebench_test.parquet`; if missing, run `curl -L -o data/raw/swebench_test.parquet https://huggingface.co/datasets/princeton-nlp/SWE-bench/resolve/main/data/test-00000-of-00001.parquet` first and say you did) |
+   | the evaluation set, the thirty cases, strata, which tasks | `npm run data:eval-set` (needs `data/raw/swebench_test.parquet`; if missing, run `curl -L -o data/raw/swebench_test.parquet https://huggingface.co/datasets/princeton-nlp/SWE-bench/resolve/e48e2bd1e9fecd5bbd641e9414ac59da9f2e69f6/data/test-00000-of-00001.parquet` first and say you did) |
    | score, accuracy, kappa, recall, a run id, compare runs | `npm run score -- <run ids…>` (default: `baseline v3-verify`; add `--detail` for per-instance rows) |
-   | the report, the headline table, baseline versus final | `node src/report.ts --baseline baseline --final v3-verify --runs <all run ids>` — the run ids are the directory names under `results/`; the default (`v3-verify`) has no repeat run, so no `--final-repeat` (the script refuses a repeat of a different configuration). Prints aligned tables; `--markdown` gives the README's pipe tables |
+   | the report, the headline table, baseline versus final | `node src/report.ts --baseline baseline --final v3-verify --runs <all run ids>` — the run ids are the directory names under `results/`; the default (`v3-verify`) has no repeat run, so no `--final-repeat` (the script refuses a repeat of a different configuration). Needs cloned workspaces for the bad-evidence rows — run `npm run data:workspaces` (~20 s) first if `workspaces/` is missing. Prints aligned tables; `--markdown` gives the README's pipe tables |
    | evidence audit, bad evidence, fabricated quotes | `npm run audit -- <run ids…>` (needs cloned workspaces: `npm run data:workspaces` first, ~20 s) |
    | code check, novel identifiers, pre-check | `npm run code-check` (needs workspaces) |
    | provenance, annotations, checksum, data source | `npm run data:annotations -- --check` |
@@ -47,7 +47,7 @@ except `data` and `annotations`, which download pinned public files. None calls 
 - Committed run ids are complete: `npm run run -- --run-id baseline` does nothing. Reproduction runs use fresh ids
   (`baseline-repro`), cost money and need `claude login` or `ANTHROPIC_API_KEY`; this skill does not start them.
   Point the user at `REPRODUCE.md` instead.
-- `audit`, `code-check` and `finalize-report.py` refuse to run without workspaces at the right commits; that is
-  intended. Run `npm run data:workspaces`, do not work around it.
+- `report.ts`, `audit`, `code-check` and `finalize-report.py` refuse to run without workspaces at the right commits;
+  that is intended. Run `npm run data:workspaces`, do not work around it.
 - `data:eval-set` prints the table; it also rewrites `data/eval/instances.json` deterministically. In a clean checkout
   `git status` stays clean afterwards — if it does not, say so, because that is a reproducibility failure.
