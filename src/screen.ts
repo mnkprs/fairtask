@@ -50,8 +50,15 @@ if (!outDir.startsWith(outRoot + sep)) throw new Error("output directory escapes
 mkdirSync(outDir, { recursive: true });
 
 console.log(`fairtask · ${task.instance_id} · ${variantName} · ${args.get("model") ?? "claude-opus-5"}`);
-const ws = await prepareWorkspace(task);
-console.log(`repository ${task.repo} @ ${task.base_commit.slice(0, 10)} (${ws.status}) → ${ws.dir}`);
+// Variants with no tools and no subagents (the baseline) never read the repository — skip the clone entirely.
+const probeBuild = variant.build(task, { model: args.get("model") ?? "claude-opus-5", workspace: "/nonexistent" });
+const needsRepo = (Array.isArray(probeBuild.options.tools) ? probeBuild.options.tools.length > 0 : probeBuild.options.tools !== undefined) || probeBuild.options.agents !== undefined;
+if (needsRepo) {
+  const ws = await prepareWorkspace(task);
+  console.log(`repository ${task.repo} @ ${task.base_commit.slice(0, 10)} (${ws.status}) → ${ws.dir}`);
+} else {
+  console.log(`repository not cloned — variant "${variantName}" has no tools and reads only the task text`);
+}
 if (task.FAIL_TO_PASS.length === 0) console.log("note: no FAIL_TO_PASS list given — the probes will treat every test in the test patch as graded");
 
 // Every screening gets its own attempt id, so concurrent screenings of the same instance never share a trajectory file.
@@ -69,7 +76,7 @@ const v = p.verdict;
 console.log("\n" + "─".repeat(72));
 if (!v) { console.log(`NO VERDICT: ${p.error}`); process.exit(1); }
 const flag = v.underspecified >= 2 || v.false_negative >= 2;
-console.log(`${flag ? "FLAG" : "USABLE"}   underspecified=${v.underspecified}  false_negative=${v.false_negative}  confidence=${v.confidence}/5  ${p.verified === false ? "(evidence NOT verified)" : p.verified ? "(evidence verified)" : ""}`);
+console.log(`${flag ? "FLAG" : "USABLE"}   underspecified=${v.underspecified}  false_negative=${v.false_negative}  confidence=${v.confidence}/5  ${p.verified === false ? "(evidence NOT verified)" : p.verified ? "(evidence verified)" : "(evidence not machine-verified — this variant has no verifier)"}`);
 console.log(`\nIssue specification (${v.underspecified}): ${v.underspecified_rationale}`);
 console.log(`\nTest scope (${v.false_negative}): ${v.false_negative_rationale}`);
 console.log(`\nEvidence (${v.evidence.length}):`);

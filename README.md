@@ -244,7 +244,7 @@ imperfect.
 
 This is the interface the project is built for. The people who screen tasks in 2026 do it inside agents — a
 Claude Code or Codex session that already has the repository open, the PR in front of it, and the rest of the
-task-authoring workflow around it. fairtask ships as **two agent skills** on top of the same engine, so the screening
+task-authoring workflow around it. fairtask ships as **seven agent skills — one command per operation** — on top of the same engine, so the screening
 and the evaluation happen in the conversation, and the numbers a session reports come from the scripts, not from
 the model's memory.
 
@@ -252,9 +252,9 @@ the model's memory.
 
 | Where you work | Install | What you get |
 |---|---|---|
-| Any harness that reads the open skills registry (Claude Code, Codex, Cursor, OpenCode, …) | `npx skills add mnkprs/fairtask` | both skills, installed into that harness's skills directory |
-| Claude Code, as a plugin | `/plugin marketplace add mnkprs/fairtask` then `/plugin install fairtask@fairtask` | both skills (plugin manifest in `.claude-plugin/`) |
-| Codex, as a plugin | the repository carries `.codex-plugin/plugin.json` | both skills |
+| Any harness that reads the open skills registry (Claude Code, Codex, Cursor, OpenCode, …) | `npx skills add mnkprs/fairtask` | all seven commands, installed into that harness's skills directory |
+| Claude Code, as a plugin | `/plugin marketplace add mnkprs/fairtask` then `/plugin install fairtask@fairtask` | all seven commands, **namespaced**: `/fairtask:fairtask-report`, `/fairtask:fairtask-score`, … (plugin manifest in `.claude-plugin/`) |
+| Codex, as a plugin | the repository carries `.codex-plugin/plugin.json` | all seven commands |
 
 One install brings the whole command set:
 
@@ -262,14 +262,16 @@ One install brings the whole command set:
 |---|---|---|
 | `/fairtask <id \| task.json \| owner/repo PR#>` | Screen a task with the full pipeline; verdict with verified evidence. | yes (~one dollar) |
 | `/fairtask-baseline <id \| task.json>` | The same task through the one-prompt baseline, for comparison; its evidence is *not* machine-verified. | yes (~fifteen cents) |
-| `/fairtask-report` | The headline and all-systems tables from the committed results. | no |
+| `/fairtask-report` | The headline and all-systems tables from the committed results (first run shallow-clones the 30 evaluation repos, ~1.2 GB, to re-verify evidence). | no |
 | `/fairtask-score [run ids…]` | Metrics of runs against the human labels. | no |
 | `/fairtask-cases [id]` | The 30-case evaluation set, or one instance laid out with its decisive lines quoted. | no |
 | `/fairtask-trajectory <id> [run]` | What the agent did on an instance, tool call by tool call. | no |
 | `/fairtask-eval …` | The supporting checks: evidence audit, zero-LLM code check, data provenance. | no |
 
-All need Node ≥ 22.18 and git. `/fairtask` also needs a Claude login or `ANTHROPIC_API_KEY`, because it runs
-the model; `/fairtask-eval` needs neither.
+The bare command names below are what a `npx skills add` install exposes; installed as the Claude Code plugin
+they are namespaced (`/fairtask:fairtask-report` and so on). All need Node ≥ 22.18 and git. The two screening
+commands — `/fairtask` and `/fairtask-baseline` — run the model and need a Claude login or `ANTHROPIC_API_KEY`;
+the other five make no model calls.
 
 ### `/fairtask` — screen a task
 
@@ -411,7 +413,7 @@ a complete command; rows with the same script differ by one flag.
 |---|---|
 | `npm run typecheck` | TypeScript, no emit. |
 | `npm test` | 23 adversarial tests: verifier (fabricated, elided, cross-hunk, removed-line and symlinked quotes), workspace trust (symlinked path, dirty tree, wrong remote, bad commit), run lock and screening ids. |
-| `npm run validate:manifests` | Semantic check of the plugin manifests and both skills' frontmatter. |
+| `npm run validate:manifests` | Semantic check of the plugin manifests, version consistency, engine pins, and every skill's frontmatter. |
 
 ## 2d. Agent trajectories
 

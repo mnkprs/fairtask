@@ -149,8 +149,12 @@ export async function runOne(variant: Variant, inst: TaskInstance, opts: Pick<Ru
     run_id: opts.runId, variant: variant.name, instance_id: inst.instance_id, model: opts.model,
     system_prompt: options.systemPrompt, prompt, tools: options.tools, allowedTools: options.allowedTools, agents: options.agents && Object.fromEntries(Object.entries(options.agents).map(([k, a]) => [k, { description: a.description, tools: a.tools, model: a.model, prompt: a.prompt }])),
   });
-  const guard = { matcher: "Read|Grep|Glob|NotebookRead", hooks: [workspaceGuard(ctx.workspace)] };
-  const hooks = { ...(options.hooks ?? {}), PreToolUse: [guard, ...(options.hooks?.PreToolUse ?? [])] };
+  // A variant with no tools and no subagents (the baseline) never touches the repository: no guard, and the
+  // workspace need not exist. The guard is constructed lazily so a missing workspace only fails repo-using variants.
+  const usesRepo = (Array.isArray(options.tools) ? options.tools.length > 0 : options.tools !== undefined) || options.agents !== undefined;
+  const hooks = usesRepo
+    ? { ...(options.hooks ?? {}), PreToolUse: [{ matcher: "Read|Grep|Glob|NotebookRead", hooks: [workspaceGuard(ctx.workspace)] }, ...(options.hooks?.PreToolUse ?? [])] }
+    : options.hooks ?? {};
   const base: Options = { model: opts.model, permissionMode: "dontAsk", settingSources: [], strictMcpConfig: true, persistSession: true, ...options, hooks };
   const t0 = Date.now();
   let cost = 0, turns = 0, inTok = 0, outTok = 0, cacheTok = 0, retries = 0, sessionId: string | undefined;

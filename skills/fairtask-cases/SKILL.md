@@ -13,8 +13,11 @@ The evaluation set, or one case laid out so a reader can see the discrepancy wit
 
 ## Steps
 
-1. **Locate the repository**: current directory if its `package.json` is named `fairtask`; else `$FAIRTASK_HOME`;
-   else `~/.fairtask`. If none exists, say so and stop.
+1. **Locate the engine**, in order: the current directory if its `package.json` is named `fairtask`;
+   `$CLAUDE_PLUGIN_ROOT` if set and it contains that `package.json` (the Claude Code plugin install *is* the
+   repository); `$FAIRTASK_HOME`; `~/.fairtask`. If none exists, clone the pinned release —
+   `git clone --branch v0.1.1 --depth 1 https://github.com/mnkprs/fairtask ~/.fairtask && (cd ~/.fairtask && npm ci)`
+   — and say you did (needs network and Node ≥ 22.18).
 2. **No instance id given** — show the set: `npm run data:eval-set` (needs `data/raw/swebench_test.parquet`; if
    missing, first run `curl --fail -L -o data/raw/swebench_test.parquet https://huggingface.co/datasets/princeton-nlp/SWE-bench/resolve/e48e2bd1e9fecd5bbd641e9414ac59da9f2e69f6/data/test-00000-of-00001.parquet`
    and say you did). Show the 30-row table verbatim and name the four strata with their counts. In a clean checkout

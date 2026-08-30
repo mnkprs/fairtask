@@ -1,6 +1,6 @@
 {
   "name": "fairtask",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Screen SWE-bench-style coding tasks for fairness: under-specified issues and tests that only accept the original fix. Verdicts with verified evidence.",
   "author": {
     "name": "Manos Kaparos",

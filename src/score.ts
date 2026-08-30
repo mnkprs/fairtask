@@ -13,7 +13,7 @@ const detail = argv.includes("--detail");
 const asJson = argv.includes("--json");
 const common = argv.includes("--common"); // restrict every run to the instances that ALL listed runs scored
 const runIds = argv.filter((a) => !a.startsWith("--"));
-if (runIds.length === 0) { console.error("usage: node src/score.ts <run-id> [...] [--detail] [--json]"); process.exit(2); }
+if (runIds.length === 0) runIds.push("baseline", "v3-verify"); // default comparison: the baseline vs the final configuration
 
 const instances = JSON.parse(readFileSync(`${ROOT}data/eval/instances.json`, "utf8")) as EvalInstance[];
 const byId = new Map(instances.map((i) => [i.instance_id, i]));

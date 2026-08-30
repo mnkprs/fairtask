@@ -1,6 +1,6 @@
 {
   "name": "fairtask",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Screen SWE-bench-style coding tasks for fairness before they become benchmark or RL tasks: is the issue specified well enough, and do the graded tests accept every reasonable fix? A command set: /fairtask (screen a task), /fairtask-baseline (one-prompt control), /fairtask-report, /fairtask-score, /fairtask-cases, /fairtask-trajectory (reproduce and inspect the evaluation) and /fairtask-eval (evidence audit, code check, provenance).",
   "author": {
     "name": "Manos Kaparos",
