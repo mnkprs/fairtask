@@ -41,5 +41,5 @@ jobs:
       - name: plugin manifests are semantically valid and describe one skill
         run: |
           npm run validate:manifests
-          npx --yes @anthropic-ai/claude-code@2.1.250 --plugin-dir . plugin details fairtask | grep -E "Skills \(2\)"
+          npx --yes @anthropic-ai/claude-code@2.1.250 --plugin-dir . plugin details fairtask | grep -E "Skills \(7\)"
           npx --yes skills add . --list 2>&1 | grep -q "fairtask"
