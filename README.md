@@ -714,3 +714,22 @@ data/eval/instances.json    the 30 cases with human labels               results
 trajectories/<run>/         one .jsonl + rendered .md per instance       REPRODUCE.md
 ```
 
+---
+
+## Citation
+
+If you use fairtask — the screening pipeline, the evaluation set, or the audit findings — please cite:
+
+```bibtex
+@software{kaparos2026fairtask,
+  author  = {Kaparos, Manos},
+  title   = {fairtask: evidence-verified fairness screening for SWE-bench-style coding tasks},
+  year    = {2026},
+  month   = aug,
+  version = {0.1.1},
+  url     = {https://github.com/mnkprs/fairtask},
+  note    = {Agent pipeline with a deterministic evidence verifier, evaluated against OpenAI's
+             SWE-bench Verified human annotations. micro1 Agentic Workflows Hackathon submission.}
+}
+```
+
